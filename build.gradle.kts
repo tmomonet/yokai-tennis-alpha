@@ -1,20 +1,8 @@
 plugins {
-    id("java")
+    id("com.android.application") version "9.2.1" apply false
 }
 
-group = "com.cafeyokai"
-version = "1.0-SNAPSHOT"
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    testImplementation(platform("org.junit:junit-bom:6.0.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
-
-tasks.test {
-    useJUnitPlatform()
+allprojects {
+    group = "com.cafeyokai"
+    version = "1.0-SNAPSHOT"
 }

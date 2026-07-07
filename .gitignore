@@ -41,3 +41,6 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+### SpecSwarm Feature 001 ###
+local.properties
+android/libs/

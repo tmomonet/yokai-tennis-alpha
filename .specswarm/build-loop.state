@@ -1,0 +1,20 @@
+{
+  "active": true,
+  "feature_description": "Yokai Tennis MVP per src/SPEC.md Success Criteria: LibGDX multi-module (core/desktop/android), Flow 1 screens, full gameplay (standard scoring, serve dual-meter, dual-joystick shot gestures, AI tiers), Patreon gate placeholder. Out of scope: Hilt, Room, Billing, real OAuth, Circuit/Tournament progression, persistence.",
+  "feature_num": "001",
+  "parent_branch": "master",
+  "branch_name": "001-mvp-gameplay-desktop-android",
+  "session_id": "build-20260707-123846-001",
+  "started_at": "2026-07-07T12:38:46-06:00",
+  "current_phase": "implement",
+  "phases_complete": ["specify","clarify","plan","tasks"],
+  "quality_threshold": 80,
+  "run_validate": false,
+  "background_mode": false,
+  "notify_on_complete": false,
+  "orchestrate_flag": "",
+  "run_analyze": false,
+  "run_checklist": false,
+  "quick_mode": false,
+  "use_orchestration": false
+}

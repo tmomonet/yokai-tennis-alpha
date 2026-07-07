@@ -63,7 +63,13 @@ Current build.gradle.kts state: `java` plugin, JUnit 6 (jupiter) via `junit-bom`
 
 ## Approved libraries
 
-*Add project-specific approved libraries here as they're introduced.*
+- LibGDX **1.14.2** (`gdx`, `gdx-backend-lwjgl3`, `gdx-backend-android`, `gdx-platform` natives) <!-- Auto-added: Feature 001, 2026-07-07; verified Maven Central -->
+- Android Gradle Plugin **9.2.1** with Gradle **9.4.1** wrapper (build tooling) <!-- Auto-added: Feature 001, 2026-07-07 -->
+- SDK levels for Feature 001: compileSdk 36 (only platform installed locally), targetSdk 35, minSdk 21 <!-- per SPEC.md Resolved Decision 9 + research R4 -->
+
+## Version history
+
+- 2026-07-07 (Feature 001): pinned LibGDX 1.14.2, AGP 9.2.1/Gradle 9.4.1; compileSdk 36. No conflicts, no prohibited tech touched. Hilt/Room/Billing/OAuth/Firestore remain target-stack-only (explicitly NOT scaffolded in Feature 001).
 
 ## Prohibited technologies
 
