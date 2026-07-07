@@ -4,7 +4,6 @@ plugins {
 
 dependencies {
     api("com.badlogicgames.gdx:gdx:1.14.2")
-    implementation("com.google.android.gms:play-services-games-v2:21.0.0")
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
