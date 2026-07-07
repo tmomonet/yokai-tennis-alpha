@@ -30,11 +30,11 @@
 
 ## Phase 3 — Screens & flow (US1/US2)
 
-- [ ] T015 [US1] Implement SpriteProvider (key→TextureRegion) + PlaceholderSprites (runtime Pixmap: red/blue/green character shapes per roster, court background, ball, padlock badge, joystick base/knob) + screen navigation in YokaiTennisGame — core/src/main/java/com/cafeyokai/tennis/gfx/, YokaiTennisGame.java
-- [ ] T016 [P] [US1] Implement content classes (Character, Court, Roster with tess/demi/patreon_test per SPEC roster, UnlockType, GameSettings with MatchLength default BEST_OF_3) + MainMenuScreen (Play/Circuit/Tournament/Settings) + SettingsScreen (match-length toggle, FR-001a) + Circuit/Tournament stub screens — core/src/main/java/com/cafeyokai/tennis/content/, core/src/main/java/com/cafeyokai/tennis/screens/
-- [ ] T017 [US1] Implement CharacterSelectScreen: 3-portrait grid via spriteKeys, padlock badge on patreon_test, Confirm/Back, free chars selectable, locked tap → UnlockScreen — core/src/main/java/com/cafeyokai/tennis/screens/CharacterSelectScreen.java
-- [ ] T018 [P] [US2] Implement UnlockScreen (Patreon gate): portrait, name, one-line lore, exact SPEC Flow 2 copy "This character is a Patreon exclusive. Connect your Patreon account to unlock.", visible non-functional Connect Patreon button, Back — core/src/main/java/com/cafeyokai/tennis/screens/UnlockScreen.java
-- [ ] T019 [P] [US1] Implement CourtSelectScreen (thumbnail grid, ≥1 free court, Confirm/Back) + ScoreScreen (set-by-set e.g. "6-3, 7-6", WIN/LOSS, continue → MainMenu) — core/src/main/java/com/cafeyokai/tennis/screens/CourtSelectScreen.java, ScoreScreen.java
+- [X] T015 [US1] Implement SpriteProvider (key→TextureRegion) + PlaceholderSprites (runtime Pixmap: red/blue/green character shapes per roster, court background, ball, padlock badge, joystick base/knob) + screen navigation in YokaiTennisGame — core/src/main/java/com/cafeyokai/tennis/gfx/, YokaiTennisGame.java
+- [X] T016 [P] [US1] Implement content classes (Character, Court, Roster with tess/demi/patreon_test per SPEC roster, UnlockType, GameSettings with MatchLength default BEST_OF_3) + MainMenuScreen (Play/Circuit/Tournament/Settings) + SettingsScreen (match-length toggle, FR-001a) + Circuit/Tournament stub screens — core/src/main/java/com/cafeyokai/tennis/content/, core/src/main/java/com/cafeyokai/tennis/screens/
+- [X] T017 [US1] Implement CharacterSelectScreen: 3-portrait grid via spriteKeys, padlock badge on patreon_test, Confirm/Back, free chars selectable, locked tap → UnlockScreen — core/src/main/java/com/cafeyokai/tennis/screens/CharacterSelectScreen.java
+- [X] T018 [P] [US2] Implement UnlockScreen (Patreon gate): portrait, name, one-line lore, exact SPEC Flow 2 copy "This character is a Patreon exclusive. Connect your Patreon account to unlock.", visible non-functional Connect Patreon button, Back — core/src/main/java/com/cafeyokai/tennis/screens/UnlockScreen.java
+- [X] T019 [P] [US1] Implement CourtSelectScreen (thumbnail grid, ≥1 free court, Confirm/Back) + ScoreScreen (set-by-set e.g. "6-3, 7-6", WIN/LOSS, continue → MainMenu) — core/src/main/java/com/cafeyokai/tennis/screens/CourtSelectScreen.java, ScoreScreen.java
 
 ## Phase 4 — Match integration (US1/US3/US4)
 
