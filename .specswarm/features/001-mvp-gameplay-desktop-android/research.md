@@ -10,9 +10,9 @@ All versions below were verified against live repositories on 2026-07-07 (not re
 
 ## R2. Android Gradle Plugin + Gradle
 
-- **Decision**: AGP **9.2.1** with Gradle **9.4.1** wrapper (bumped from 9.3.0 during T004 — AGP 9.2.1 requires Gradle ≥ 9.4.1).
-- **Rationale**: 9.2.1 is the latest stable AGP on Google Maven (9.3.0 is at rc01). AGP 9.x is the Gradle-9-compatible line.
-- **Risk**: If AGP 9.2.1 rejects Gradle 9.3.0 or `minSdk 21` (AGP has been raising its minSdk floor), fallbacks in order: AGP 9.3.0-rc01; raise minSdk only with explicit user sign-off since SPEC.md Resolved Decision 9 pins minSdk 21.
+- **Decision**: AGP **9.0.0** with Gradle **9.4.1** wrapper (bumped from 9.3.0 during T004 — AGP 9.0.0 requires Gradle ≥ 9.4.1).
+- **Rationale**: 9.0.0 is the max AGP supported by the installed Android Studio (9.2.1 built fine but broke IDE sync; downgraded 2026-07-07). AGP 9.x is the Gradle-9-compatible line.
+- **Risk**: If AGP 9.0.0 rejects Gradle 9.3.0 or `minSdk 21` (AGP has been raising its minSdk floor), fallbacks in order: AGP 9.3.0-rc01; raise minSdk only with explicit user sign-off since SPEC.md Resolved Decision 9 pins minSdk 21.
 
 ## R3. JDK / toolchain
 

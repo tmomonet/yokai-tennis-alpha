@@ -13,7 +13,7 @@ Restructure the single-module Gradle project into the standard LibGDX three-modu
 |---|---|---|
 | Language | Java, compiled to 17 bytecode | — |
 | Game engine | LibGDX **1.14.2** (core, lwjgl3 backend, android backend, platform natives) | Maven Central 2026-07-07 |
-| Build | Gradle **9.4.1** wrapper (already present), AGP **9.2.1** | wrapper file; Google Maven 2026-07-07 |
+| Build | Gradle **9.4.1** wrapper (already present), AGP **9.0.0** | wrapper file; Google Maven 2026-07-07 |
 | JDK | Corretto 25 at `C:/Users/e48994/.jdks/corretto-25.0.3` (NOT on PATH — set `JAVA_HOME` for CLI builds) | filesystem |
 | Android SDK | `%LOCALAPPDATA%/Android/Sdk`; platform android-36.1, build-tools 36.1.0/37.0.0 | filesystem |
 | SDK levels | compileSdk 36, targetSdk 35, minSdk 21 | research R4 |
@@ -40,7 +40,7 @@ Java · LibGDX (core/android/desktop) · LibGDX AssetManager pattern (key-based,
 
 ### ➕ New (auto-added to tech-stack.md, this feature)
 - **LibGDX 1.14.2** — version pin (tech-stack.md listed no version)
-- **AGP 9.2.1 + Gradle 9.4.1** — build tooling for the new `:android` module
+- **AGP 9.0.0 + Gradle 9.4.1** — build tooling for the new `:android` module
 - **LWJGL3 backend (gdx-backend-lwjgl3)** — desktop launcher backend
 
 ### ⚠️ Conflicts
@@ -92,7 +92,7 @@ Deleted: `src/main/java/com/cafeyokai/Main.java` (+ root `src/main`, `src/test` 
 
 **Phase A — Skeleton that runs (build system first, riskiest external dependency)**
 1. Root/settings restructure; `:core` `:desktop` modules; LibGDX 1.14.2 wired; DesktopLauncher opens 1280×720 window with empty Game. Gate: `gradlew desktop:run` shows a window; `gradlew test` passes (empty).
-2. `:android` module: AGP 9.2.1, manifest landscape, launcher delegating to shared Game. Gate: `gradlew android:assembleDebug` produces APK. (R2 risk lands here — resolve AGP/Gradle/minSdk friction NOW, not at the end.)
+2. `:android` module: AGP 9.0.0, manifest landscape, launcher delegating to shared Game. Gate: `gradlew android:assembleDebug` produces APK. (R2 risk lands here — resolve AGP/Gradle/minSdk friction NOW, not at the end.)
 
 **Phase B — Pure engine + tests (no rendering, cheap iteration)**
 3. TennisScore + TiebreakState per contract; full unit tests (contract invariants 1–8).
@@ -124,7 +124,7 @@ Deleted: `src/main/java/com/cafeyokai/Main.java` (+ root `src/main`, `src/test` 
 
 | Risk | Mitigation |
 |---|---|
-| AGP 9.2.1 × Gradle incompatibility (RESOLVED: wrapper bumped 9.3.0→9.4.1, AGP minimum) or minSdk-21 floor rejection | Phase A.2 front-loads it; fallback AGP 9.3.0-rc01; minSdk change requires user sign-off (SPEC pin) |
+| AGP 9.0.0 × Gradle incompatibility (RESOLVED: wrapper bumped 9.3.0→9.4.1, AGP minimum) or minSdk-21 floor rejection | Phase A.2 front-loads it; fallback AGP 9.3.0-rc01; minSdk change requires user sign-off (SPEC pin) |
 | Apex-jerk false positives (SPEC flags tuning risk) | Contract test for the sloppy-flick case; GestureTuning data-only retuning; sanctioned lob/smash-only fallback with user sign-off |
 | Best-of-3 demo verification cost | Settings single-set mode (FR-001a) for iteration; DoD run once at the end |
 | `java` not on PATH | All CLI builds run with explicit `JAVA_HOME=C:/Users/e48994/.jdks/corretto-25.0.3` |

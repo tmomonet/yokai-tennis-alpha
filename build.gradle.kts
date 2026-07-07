@@ -1,5 +1,6 @@
 plugins {
-    id("com.android.application") version "9.2.1" apply false
+    // 9.0.0 is the max AGP the installed Android Studio supports.
+    id("com.android.application") version "9.0.0" apply false
 }
 
 allprojects {

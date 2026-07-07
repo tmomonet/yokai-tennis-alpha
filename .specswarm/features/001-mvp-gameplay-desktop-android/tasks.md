@@ -6,14 +6,14 @@
 
 **Feature**: Yokai Tennis MVP — Playable Cross-Platform Demo
 **Story map**: US1 = end-to-end Quick Match (Scenario 1) · US2 = Patreon gate (Scenario 2) · US3 = serve mechanic (Scenario 3) · US4 = gesture shots (Scenario 4) · US5 = cross-platform dev loop (Scenario 5)
-**Environment for every build task**: `JAVA_HOME="C:/Users/e48994/.jdks/corretto-25.0.3"` (java not on PATH); Android SDK at `%LOCALAPPDATA%/Android/Sdk`; Gradle wrapper 9.4.1 (AGP 9.2.1 minimum).
+**Environment for every build task**: `JAVA_HOME="C:/Users/e48994/.jdks/corretto-25.0.3"` (java not on PATH); Android SDK at `%LOCALAPPDATA%/Android/Sdk`; Gradle wrapper 9.4.1 (required by AGP 9.x).
 
 ## Phase 1 — Setup: multi-module skeleton (US5, blocking all)
 
 - [X] T001 [US5] Restructure root: remove `java` plugin from build.gradle.kts, include `core`/`desktop`/`android` in settings.gradle.kts, add gradle.properties (AndroidX flags, jvmargs), delete `src/main/java/com/cafeyokai/Main.java` and empty root `src/main`+`src/test` trees (KEEP `src/SPEC.md`), add `local.properties` (sdk.dir) and gitignore it — build.gradle.kts, settings.gradle.kts, gradle.properties, .gitignore
 - [X] T002 [US5] Create `:core` module: java-library, options.release=17, LibGDX 1.14.2 api dep, JUnit Jupiter 6 (junit-bom 6.0.0) test deps moved from root, minimal `YokaiTennisGame extends Game` with a solid-color clear screen — core/build.gradle.kts, core/src/main/java/com/cafeyokai/tennis/YokaiTennisGame.java
 - [X] T003 [US5] Create `:desktop` module: gdx-backend-lwjgl3 1.14.2 + natives-desktop, `DesktopLauncher` fixed 1280×720 window titled "Yokai Tennis". GATE: `gradlew desktop:run` opens a window; `gradlew test` passes — desktop/build.gradle.kts, desktop/src/main/java/com/cafeyokai/tennis/desktop/DesktopLauncher.java
-- [X] T004 [US5] Create `:android` module: AGP 9.2.1, namespace com.cafeyokai.tennis, compileSdk 36/targetSdk 35/minSdk 21, landscape-locked manifest, `AndroidLauncher` delegating to YokaiTennisGame, gdx-backend-android + arm/x86 natives. GATE: `gradlew android:assembleDebug` produces APK. Front-loads the AGP/Gradle-9.3 risk (plan R2): if incompatible try AGP 9.3.0-rc01; if minSdk 21 rejected STOP and ask user (SPEC pin) — android/build.gradle.kts, android/src/main/AndroidManifest.xml, android/src/main/java/com/cafeyokai/tennis/android/AndroidLauncher.java
+- [X] T004 [US5] Create `:android` module: AGP 9.0.0, namespace com.cafeyokai.tennis, compileSdk 36/targetSdk 35/minSdk 21, landscape-locked manifest, `AndroidLauncher` delegating to YokaiTennisGame, gdx-backend-android + arm/x86 natives. GATE: `gradlew android:assembleDebug` produces APK. Front-loads the AGP/Gradle-9.3 risk (plan R2): if incompatible try AGP 9.3.0-rc01; if minSdk 21 rejected STOP and ask user (SPEC pin) — android/build.gradle.kts, android/src/main/AndroidManifest.xml, android/src/main/java/com/cafeyokai/tennis/android/AndroidLauncher.java
 
 ## Phase 2 — Pure engine + tests (US3/US4; no rendering deps)
 

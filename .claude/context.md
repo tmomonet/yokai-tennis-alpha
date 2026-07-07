@@ -2,7 +2,7 @@
 ## Tech Stack (from .specswarm/features/001-mvp-gameplay-desktop-android/plan.md)
 - **Language**: Java (compiled to 17 bytecode; Gradle runs on Corretto 25 — JAVA_HOME required, java not on PATH)
 - **Framework**: LibGDX 1.14.2 (:core game logic, :desktop LWJGL3, :android launcher)
-- **Build**: Gradle 9.4.1 wrapper + AGP 9.2.1; compileSdk 36 / targetSdk 35 / minSdk 21
+- **Build**: Gradle 9.4.1 wrapper + AGP 9.0.0; compileSdk 36 / targetSdk 35 / minSdk 21
 - **Database**: none this feature (persistence-free chunk; Room is post-chunk target stack)
 - **Key Libraries**: JUnit Jupiter 6 (junit-bom 6.0.0) for :core tests
 
