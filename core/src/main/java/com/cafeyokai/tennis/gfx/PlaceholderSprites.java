@@ -30,9 +30,12 @@ public final class PlaceholderSprites implements SpriteProvider {
     private Texture create(String key) {
         return switch (key) {
             case "white" -> solid(1, 1, Color.WHITE);
-            case "char.tess" -> portrait(new Color(0.85f, 0.20f, 0.20f, 1f));
-            case "char.demi" -> portrait(new Color(0.22f, 0.42f, 0.90f, 1f));
-            case "char.patreon_test" -> portrait(new Color(0.20f, 0.72f, 0.30f, 1f));
+            case "char.tess" -> pixelPortrait(TESS_GRID, TESS_PALETTE, 4);
+            case "char.demi" -> pixelPortrait(DEMI_GRID, DEMI_PALETTE, 4);
+            case "char.patreon_test" -> pixelPortrait(PATREON_GRID, PATREON_PALETTE, 4);
+            case "char.tess.court" -> pixelPortrait(TESS_COURT_GRID, TESS_PALETTE, 3);
+            case "char.demi.court" -> pixelPortrait(DEMI_COURT_GRID, DEMI_PALETTE, 3);
+            case "char.patreon_test.court" -> pixelPortrait(PATREON_COURT_GRID, PATREON_PALETTE, 3);
             case "ball" -> ball();
             case "badge.padlock" -> padlock();
             case "joystick.base" -> circle(160, new Color(1f, 1f, 1f, 0.25f));
@@ -49,19 +52,175 @@ public final class PlaceholderSprites implements SpriteProvider {
         return upload(p);
     }
 
-    /** Character portrait: colored round head + shoulders on a dark card. */
-    private static Texture portrait(Color c) {
-        int s = 128;
-        Pixmap p = new Pixmap(s, s, Pixmap.Format.RGBA8888);
-        p.setColor(0.13f, 0.12f, 0.18f, 1f);
+    // -----------------------------------------------------------------------
+    // Pixel-art character grids
+    // -----------------------------------------------------------------------
+    // Grid convention: each char maps to a palette entry; '.' = transparent.
+    // The grid is top-down (row 0 = top of the sprite).
+    // Palette: {r, g, b, a} each 0-255.
+
+    // --- Tess (red hair, red outfit, skin face) ---
+    private static final String[] TESS_GRID = {
+        "....RRRRRR....",
+        "...RRRRRRRR...",
+        "...RRffffRR...",
+        "...RfffffRR...",
+        "...RfffffRR...",
+        "....RRRRRR....",
+        "..OOOOOOOOOO..",
+        ".OOOOOOOOOOOO.",
+        ".OOOOOOOOOOOO.",
+        ".OOOOOOOOOOOO.",
+        "..OOOOOOOOOO..",
+        "...OOOO.OOOO..",
+        "..OOOOO.OOOOO.",
+        ".OOOOOO.OOOOOO",
+        "OOOOOOO.OOOOOOO",
+        "OOOOOO...OOOOO",
+    };
+    private static final java.util.Map<Character, int[]> TESS_PALETTE = buildPalette(
+        'R', new int[]{210, 40,  40,  255},
+        'f', new int[]{240, 195, 150, 255},
+        'O', new int[]{200, 50,  50,  255}
+    );
+
+    // --- Demi (blue hair, blue outfit) ---
+    private static final String[] DEMI_GRID = {
+        "....BBBBBB....",
+        "...BBBBBBBB...",
+        "...BBffffBB...",
+        "...BfffffBB...",
+        "...BfffffBB...",
+        "....BBBBBB....",
+        "..UUUUUUUUUU..",
+        ".UUUUUUUUUUUU.",
+        ".UUUUUUUUUUUU.",
+        ".UUUUUUUUUUUU.",
+        "..UUUUUUUUUU..",
+        "...UUUU.UUUU..",
+        "..UUUUU.UUUUU.",
+        ".UUUUUU.UUUUUU",
+        "UUUUUUU.UUUUUU",
+        "UUUUUU...UUUUU",
+    };
+    private static final java.util.Map<Character, int[]> DEMI_PALETTE = buildPalette(
+        'B', new int[]{50,  80,  220, 255},
+        'f', new int[]{240, 195, 150, 255},
+        'U', new int[]{60,  100, 210, 255}
+    );
+
+    // --- Patreon test (dark silhouette with green outline and "?" face) ---
+    private static final String[] PATREON_GRID = {
+        "....GGGGGG....",
+        "...GGGGGGGG...",
+        "...GGddddGG...",
+        "...GdQdddGG...",
+        "...GdddddGG...",
+        "....GGGGGG....",
+        "..VVVVVVVVVV..",
+        ".VVVVVVVVVVVV.",
+        ".VVVVVVVVVVVV.",
+        ".VVVVVVVVVVVV.",
+        "..VVVVVVVVVV..",
+        "...VVVV.VVVV..",
+        "..VVVVV.VVVVV.",
+        ".VVVVVV.VVVVVV",
+        "VVVVVVV.VVVVVV",
+        "VVVVVV...VVVVV",
+    };
+    private static final java.util.Map<Character, int[]> PATREON_PALETTE = buildPalette(
+        'G', new int[]{40,  180, 70,  255},
+        'd', new int[]{30,  25,  40,  255},
+        'Q', new int[]{220, 220, 50,  255},
+        'V', new int[]{50,  160, 60,  255}
+    );
+
+    // --- Court (chibi) sprites: smaller 12x16 grids for in-match rendering ---
+    private static final String[] TESS_COURT_GRID = {
+        "..RRRR..",
+        ".RRRRRR.",
+        ".RffRRR.",
+        ".RfffffR.",
+        "..RRRR..",
+        ".OOOOOO.",
+        "OOOOOOOO",
+        "OOOOOOOO",
+        ".OOOOOO.",
+        "..OO.OO.",
+        "..OO.OO.",
+        ".OOO.OOO",
+    };
+    private static final String[] DEMI_COURT_GRID = {
+        "..BBBB..",
+        ".BBBBBB.",
+        ".BBffBB.",
+        ".BfffffB.",
+        "..BBBB..",
+        ".UUUUUU.",
+        "UUUUUUUU",
+        "UUUUUUUU",
+        ".UUUUUU.",
+        "..UU.UU.",
+        "..UU.UU.",
+        ".UUU.UUU",
+    };
+    private static final String[] PATREON_COURT_GRID = {
+        "..GGGG..",
+        ".GGGGGG.",
+        ".GGddGG.",
+        ".GdQdddG.",
+        "..GGGG..",
+        ".VVVVVV.",
+        "VVVVVVVV",
+        "VVVVVVVV",
+        ".VVVVVV.",
+        "..VV.VV.",
+        "..VV.VV.",
+        ".VVV.VVV",
+    };
+
+    // -----------------------------------------------------------------------
+    // Pixel-art renderer
+    // -----------------------------------------------------------------------
+
+    /**
+     * Renders a pixel-art grid to a Texture.
+     * Each character in {@code rows} maps to a palette entry; '.' is transparent.
+     * Each grid cell is rendered at {@code scale x scale} pixels.
+     */
+    private static Texture pixelPortrait(String[] rows, java.util.Map<Character, int[]> palette, int scale) {
+        int gridH = rows.length;
+        int gridW = 0;
+        for (String row : rows) {
+            if (row.length() > gridW) gridW = row.length();
+        }
+        int pw = gridW * scale;
+        int ph = gridH * scale;
+        Pixmap p = new Pixmap(pw, ph, Pixmap.Format.RGBA8888);
+        // Fill transparent
+        p.setColor(0f, 0f, 0f, 0f);
         p.fill();
-        p.setColor(c);
-        p.fillCircle(s / 2, s / 2 + 14, 30);            // head
-        p.fillRectangle(s / 2 - 42, 0, 84, 34);          // shoulders (y-down pixmap)
-        p.setColor(c.r * 0.6f, c.g * 0.6f, c.b * 0.6f, 1f);
-        p.drawRectangle(0, 0, s, s);
-        p.drawRectangle(1, 1, s - 2, s - 2);
+        for (int row = 0; row < gridH; row++) {
+            String line = rows[row];
+            for (int col = 0; col < line.length(); col++) {
+                char ch = line.charAt(col);
+                if (ch == '.') continue;
+                int[] rgba = palette.get(ch);
+                if (rgba == null) continue;
+                p.setColor(rgba[0] / 255f, rgba[1] / 255f, rgba[2] / 255f, rgba[3] / 255f);
+                p.fillRectangle(col * scale, row * scale, scale, scale);
+            }
+        }
         return upload(p);
+    }
+
+    /** Builds a Character → int[4] palette map from alternating key/value varargs. */
+    private static java.util.Map<Character, int[]> buildPalette(Object... entries) {
+        java.util.Map<Character, int[]> map = new java.util.HashMap<>();
+        for (int i = 0; i + 1 < entries.length; i += 2) {
+            map.put((Character) entries[i], (int[]) entries[i + 1]);
+        }
+        return map;
     }
 
     private static Texture ball() {

@@ -38,12 +38,12 @@
 
 ## Phase 4 — Match integration (US1/US3/US4)
 
-- [ ] T020 [US4] Implement VirtualJoystick widget (render base+knob, displacement vector, timestamped sample stream) + MatchInput mapping: Android touch both sticks; Desktop WASD/arrows → left stick, mouse drag/flick → right stick samples, click = meter tap (clarified 2026-07-07) — core/src/main/java/com/cafeyokai/tennis/input/
-- [ ] T021 [US1] Implement MatchScreen rendering: top-down court from CourtGeometry, character sprites, ball with shadow/height scale, HUD score top-center (sets/games/points incl. tiebreak digits) + serve indicator top-left per SPEC wireframe — core/src/main/java/com/cafeyokai/tennis/screens/MatchScreen.java
-- [ ] T022 [US3] Wire serve flow in MatchController + MatchScreen: aim drag/indicator in service box, 10s countdown display, power bar UI, accuracy needle UI, fault/double-fault messaging, AI serves skip meters using tier params — core/src/main/java/com/cafeyokai/tennis/engine/MatchController.java, MatchScreen.java
-- [ ] T023 [US4] Wire rally loop: right-stick trace → GestureClassifier → shot execution with range-radius check + distance-scaled power → BallSimulator flight/bounce → point resolution (out/double-bounce/net) → TennisScore.pointWonBy → next serve or match over — core/src/main/java/com/cafeyokai/tennis/engine/MatchController.java
-- [ ] T024 [US1] Integrate AI opponent end-to-end: AI movement toward intercept, AI shot selection/returns vs player spin per tier, Quick Match fixed to MEDIUM (FR-042) — core/src/main/java/com/cafeyokai/tennis/engine/MatchController.java, engine/ai/
-- [ ] T025 [US1] Match completion flow: MATCH_OVER → ScoreScreen with real set scores → MainMenu; honor GameSettings.matchLength (single set vs best-of-3) — core/src/main/java/com/cafeyokai/tennis/screens/, engine/
+- [X] T020 [US4] Implement VirtualJoystick widget (render base+knob, displacement vector, timestamped sample stream) + MatchInput mapping: Android touch both sticks; Desktop WASD/arrows → left stick, mouse drag/flick → right stick samples, click = meter tap (clarified 2026-07-07) — core/src/main/java/com/cafeyokai/tennis/input/
+- [X] T021 [US1] Implement MatchScreen rendering: top-down court from CourtGeometry, character sprites, ball with shadow/height scale, HUD score top-center (sets/games/points incl. tiebreak digits) + serve indicator top-left per SPEC wireframe — core/src/main/java/com/cafeyokai/tennis/screens/MatchScreen.java
+- [X] T022 [US3] Wire serve flow in MatchController + MatchScreen: aim drag/indicator in service box, 10s countdown display, power bar UI, accuracy needle UI, fault/double-fault messaging, AI serves skip meters using tier params — core/src/main/java/com/cafeyokai/tennis/engine/MatchController.java, MatchScreen.java
+- [X] T023 [US4] Wire rally loop: right-stick trace → GestureClassifier → shot execution with range-radius check + distance-scaled power → BallSimulator flight/bounce → point resolution (out/double-bounce/net) → TennisScore.pointWonBy → next serve or match over — core/src/main/java/com/cafeyokai/tennis/engine/MatchController.java
+- [X] T024 [US1] Integrate AI opponent end-to-end: AI movement toward intercept, AI shot selection/returns vs player spin per tier, Quick Match fixed to MEDIUM (FR-042) — core/src/main/java/com/cafeyokai/tennis/engine/MatchController.java, engine/ai/
+- [X] T025 [US1] Match completion flow: MATCH_OVER → ScoreScreen with real set scores → MainMenu; honor GameSettings.matchLength (single set vs best-of-3) — core/src/main/java/com/cafeyokai/tennis/screens/, engine/
 
 ## Phase 5 — Polish & verification (US1..US5)
 
