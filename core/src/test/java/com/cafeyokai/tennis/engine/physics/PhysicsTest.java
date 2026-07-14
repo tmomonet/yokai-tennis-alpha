@@ -28,17 +28,18 @@ class PhysicsTest {
     @Test
     @DisplayName("Service box checks respect side, depth, and deuce/ad half")
     void serviceBoxChecks() {
-        // Receiver 1 (y>0) faces -y; deuce (right) court is x>0.
-        assertTrue(CourtGeometry.isInServiceBox(2f, 3f, 1, true));
-        assertFalse(CourtGeometry.isInServiceBox(-2f, 3f, 1, true));
-        assertTrue(CourtGeometry.isInServiceBox(-2f, 3f, 1, false)); // ad court
-        assertFalse(CourtGeometry.isInServiceBox(2f, 7f, 1, true));  // past service line
-        assertFalse(CourtGeometry.isInServiceBox(2f, -3f, 1, true)); // wrong side of net
+        // Receiver 1 (y>0) faces -y; their right (deuce) court is x<0
+        // (real-tennis orientation, fixed 2026-07-14).
+        assertTrue(CourtGeometry.isInServiceBox(-2f, 3f, 1, true));
+        assertFalse(CourtGeometry.isInServiceBox(2f, 3f, 1, true));
+        assertTrue(CourtGeometry.isInServiceBox(2f, 3f, 1, false)); // ad court
+        assertFalse(CourtGeometry.isInServiceBox(-2f, 7f, 1, true)); // past service line
+        assertFalse(CourtGeometry.isInServiceBox(-2f, -3f, 1, true)); // wrong side of net
 
-        // Receiver 0 (y<0) faces +y; deuce court mirrors to x<0.
-        assertTrue(CourtGeometry.isInServiceBox(-2f, -3f, 0, true));
-        assertFalse(CourtGeometry.isInServiceBox(2f, -3f, 0, true));
-        assertTrue(CourtGeometry.isInServiceBox(2f, -3f, 0, false));
+        // Receiver 0 (y<0) faces +y; deuce court mirrors to x>0.
+        assertTrue(CourtGeometry.isInServiceBox(2f, -3f, 0, true));
+        assertFalse(CourtGeometry.isInServiceBox(-2f, -3f, 0, true));
+        assertTrue(CourtGeometry.isInServiceBox(-2f, -3f, 0, false));
 
         // Box centers land inside their own box.
         for (int receiver = 0; receiver <= 1; receiver++) {

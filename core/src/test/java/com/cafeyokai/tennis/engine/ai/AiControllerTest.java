@@ -36,7 +36,8 @@ class AiControllerTest {
         AiController easy = new AiController(DifficultyTier.EASY, SEED);
         AiController hard = new AiController(DifficultyTier.HARD, SEED);
         float[] center = CourtGeometry.serviceBoxCenter(1, true);
-        float corner = CourtGeometry.HALF_WIDTH - 0.45f;
+        // Outside corner of the deuce box, on the same lateral side as its center
+        float corner = Math.copySign(CourtGeometry.HALF_WIDTH - 0.45f, center[0]);
 
         float easyCenterDist = 0f;
         float hardCornerDist = 0f;

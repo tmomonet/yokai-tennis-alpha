@@ -98,12 +98,13 @@ public final class ServeState {
         float sign = CourtGeometry.sideSign(receiver);
         float depth = clamp(y * sign, BOX_MARGIN, CourtGeometry.SERVICE_LINE - BOX_MARGIN);
         aimY = depth * sign;
-        // Deuce court is the receiver's right half (x*sign >= 0); ad is the mirror.
+        // Deuce court is the receiver's right half facing the net (x*sign <= 0);
+        // ad is the mirror. Matches CourtGeometry.isInServiceBox.
         float lateral = x * sign;
         if (deuceCourt) {
-            lateral = clamp(lateral, BOX_MARGIN, CourtGeometry.HALF_WIDTH - BOX_MARGIN);
-        } else {
             lateral = clamp(lateral, -(CourtGeometry.HALF_WIDTH - BOX_MARGIN), -BOX_MARGIN);
+        } else {
+            lateral = clamp(lateral, BOX_MARGIN, CourtGeometry.HALF_WIDTH - BOX_MARGIN);
         }
         aimX = lateral * sign;
     }

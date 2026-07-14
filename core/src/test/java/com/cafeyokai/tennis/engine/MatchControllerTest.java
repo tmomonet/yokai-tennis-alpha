@@ -200,10 +200,14 @@ class MatchControllerTest {
         MatchController mc = new MatchController(1, TIER, SEED);
 
         // A real single tennis set can take 15-30 minutes. We use large dt steps
-        // (0.1s each) and advance 5000 steps = 500 simulated seconds to guarantee
-        // the match ends. The engine is deterministic so this always terminates.
-        int maxFrames = 5000;
+        // (0.1s each) and advance 15000 steps = 1500 simulated seconds to guarantee
+        // the match ends (AI points now include serve delay + windup telegraph).
+        // The scripted inputs draw from a seeded Random — identical taps every
+        // point can lock the deterministic engine into an infinite deuce cycle.
+        int maxFrames = 15000;
         float dt = 0.1f; // 100ms per step — fast simulation
+        java.util.Random script = new java.util.Random(999L);
+        float powerTarget = -1f;
 
         for (int frame = 0; frame < maxFrames; frame++) {
             MatchController.Phase p = mc.getPhase();
@@ -211,26 +215,36 @@ class MatchControllerTest {
                 break;
             }
 
-            // Human serve: advance through meter stages
+            // Human serve: advance through meter stages, varying locked power
             if (p == MatchController.Phase.SERVE_METERS && mc.isHumanServing()) {
                 ServeState ss = mc.getServeState();
                 if (ss != null) {
                     switch (ss.phase()) {
-                        case AIMING   -> mc.meterTap();
-                        case POWER    -> mc.meterTap();
+                        case AIMING -> mc.meterTap();
+                        case POWER -> {
+                            if (powerTarget < 0f) {
+                                powerTarget = 0.1f + script.nextFloat() * 0.5f;
+                            }
+                            if (ss.powerMeter() >= powerTarget) {
+                                mc.meterTap();
+                                powerTarget = -1f;
+                            }
+                        }
                         case ACCURACY -> mc.meterTap();
                         default -> {}
                     }
                 }
             }
 
-            // Submit a simple upward gesture when in RALLY
+            // Submit an upward gesture when in RALLY, varying aim and flick speed
             if (p == MatchController.Phase.RALLY && frame % 5 == 0) {
                 float t = frame * dt;
+                float dirX = (script.nextFloat() - 0.5f) * 0.8f;
+                float step = 0.03f + script.nextFloat() * 0.05f;
                 List<GestureTrace.Sample> samples = new ArrayList<>();
-                samples.add(new GestureTrace.Sample(t,         0.0f, 0.1f));
-                samples.add(new GestureTrace.Sample(t + 0.04f, 0.0f, 0.5f));
-                samples.add(new GestureTrace.Sample(t + 0.08f, 0.0f, 0.9f));
+                samples.add(new GestureTrace.Sample(t,            dirX * 0.1f, 0.1f));
+                samples.add(new GestureTrace.Sample(t + step,     dirX * 0.5f, 0.5f));
+                samples.add(new GestureTrace.Sample(t + 2 * step, dirX,        0.9f));
                 GestureTrace trace = new GestureTrace(samples);
                 GestureClassifier clf = new GestureClassifier(GestureTuning.defaults());
                 Optional<ShotGesture> shot = clf.classify(trace);
@@ -241,7 +255,7 @@ class MatchControllerTest {
         }
 
         assertEquals(MatchController.Phase.MATCH_OVER, mc.getPhase(),
-                "Match must reach MATCH_OVER within 500 simulated seconds");
+                "Match must reach MATCH_OVER within 1500 simulated seconds");
 
         // Winner must be 0 or 1
         int winner = mc.getScore().winner();

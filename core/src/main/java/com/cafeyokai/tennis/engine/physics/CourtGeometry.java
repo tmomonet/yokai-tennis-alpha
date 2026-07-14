@@ -49,15 +49,16 @@ public final class CourtGeometry {
         if (depth < 0f || depth > SERVICE_LINE) {
             return false;
         }
-        // Receiver at +y faces -y: their right is +x. Receiver at -y: right is -x.
-        boolean rightHalf = x * sign >= 0f;
+        // Receiver at +y faces -y: their right is -x. Receiver at -y faces +y:
+        // their right is +x. (Fixed 2026-07-14 — was mirrored vs real tennis.)
+        boolean rightHalf = x * sign <= 0f;
         return deuceCourt == rightHalf && Math.abs(x) <= HALF_WIDTH;
     }
 
     /** Center point of a service box, for aim defaults and AI serve targeting. */
     public static float[] serviceBoxCenter(int receiver, boolean deuceCourt) {
         float sign = sideSign(receiver);
-        float x = (deuceCourt ? 1f : -1f) * sign * HALF_WIDTH / 2f;
+        float x = (deuceCourt ? -1f : 1f) * sign * HALF_WIDTH / 2f;
         float y = sign * SERVICE_LINE / 2f;
         return new float[] {x, y};
     }

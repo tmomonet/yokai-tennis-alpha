@@ -87,6 +87,9 @@ public final class MatchController {
 
     private int pointsThisGame; // used to determine deuce/ad court rotation
 
+    /** Server's lateral spot for the current point (deuce/ad side of center). */
+    private float serveSideX;
+
     // Player positions (human moves freely on own half; AI X-tracks the ball)
     private float playerX = 0f;
     private float playerY = HUMAN_BASE_Y;
@@ -133,8 +136,16 @@ public final class MatchController {
         deuceCourt = (pointsThisGame % 2 == 0);
         receiver = 1 - currentServer;
 
+        // Tennis-rules positions: the server stands to the side of their center
+        // mark matching the point (deuce = server's right facing the net) and
+        // serves diagonally; the receiver shades toward the box being served to.
+        float[] boxCenter = CourtGeometry.serviceBoxCenter(receiver, deuceCourt);
+        serveSideX = -Math.signum(boxCenter[0]) * 1.2f;
+        float serverX = serveSideX;
+        float receiverX = boxCenter[0] * 0.75f;
+
         // Reset ball to serve position (above server's racket)
-        ball.x = 0f;
+        ball.x = serverX;
         ball.y = currentServer == HUMAN ? HUMAN_BASE_Y * 0.8f : AI_BASE_Y * 0.8f;
         ball.z = 1.5f;
         ball.vx = 0f;
@@ -148,10 +159,15 @@ public final class MatchController {
         serveState = new ServeState(currentServer, deuceCourt);
         messages.clear();
 
-        // Reset positions so the receiver starts centered for the serve
-        playerX = 0f;
+        // Place server and receiver on their tennis-correct sides
+        if (currentServer == HUMAN) {
+            playerX = serverX;
+            aiX = receiverX;
+        } else {
+            aiX = serverX;
+            playerX = receiverX;
+        }
         playerY = HUMAN_BASE_Y;
-        aiX = 0f;
 
         aiReactionTimer = 0f;
         aiReactionStarted = false;
@@ -253,8 +269,8 @@ public final class MatchController {
         float[] target = ai.chooseServeTarget(receiver, deuceCourt);
         float speed    = ai.serveSpeed();
 
-        // Position AI ball at AI side
-        ball.x = 0f;
+        // Serve launches from where the AI is standing (its serve-side spot)
+        ball.x = aiX;
         ball.y = AI_BASE_Y * 0.8f;
         ball.z = 1.5f;
         ball.bounces = 0;
@@ -289,7 +305,10 @@ public final class MatchController {
                 phase = Phase.RALLY;
                 messages.clear();
                 aiReactionTimer = ai.effectiveReactionDelay(ball.spin);
-                aiReactionStarted = false;
+                // The serve has already bounced — the receiver reacts now.
+                // (Without this the AI could never return a serve: the RALLY
+                // bounce handler never sees the serve's bounce.)
+                aiReactionStarted = true;
             }
         }
     }
@@ -322,8 +341,10 @@ public final class MatchController {
 
         // Ball bounced
         if (newBounces > 0) {
-            // Check if the ball is now out
-            if (!CourtGeometry.isInsideCourt(ball.lastBounceX, ball.lastBounceY)) {
+            // Only the FIRST bounce after a hit is judged in/out — once a ball
+            // has bounced in legally, where the second bounce lands is moot.
+            if (ball.bounces == 1
+                    && !CourtGeometry.isInsideCourt(ball.lastBounceX, ball.lastBounceY)) {
                 // lastHitBy sent it out — opponent wins
                 int winner = 1 - ball.lastHitBy;
                 awardPoint(winner, winner == HUMAN ? "Out! Point to you." : "Out!");
@@ -487,6 +508,17 @@ public final class MatchController {
         } else {
             phase = Phase.SERVE_METERS;
             messages.add("Fault!");
+            // Return the ball to the server's hand for the second serve
+            ball.x = serveSideX;
+            ball.y = currentServer == HUMAN ? HUMAN_BASE_Y * 0.8f : AI_BASE_Y * 0.8f;
+            ball.z = 1.5f;
+            ball.vx = 0f;
+            ball.vy = 0f;
+            ball.vz = 0f;
+            ball.spin = SpinType.NONE;
+            ball.bounces = 0;
+            ball.netHit = false;
+            ball.lastHitBy = -1;
             if (currentServer == AI) {
                 // Pause before the AI's second serve instead of firing next frame
                 aiServeTimer = 1.0f + random.nextFloat() * 0.6f;
@@ -548,12 +580,26 @@ public final class MatchController {
         float t = dist / speed;
         // z(t) = z0 + vz*t - 0.5*g*t^2 = 0  =>  vz = (0.5*g*t^2 - z0) / t
         float vz = (0.5f * BallSimulator.GRAVITY * t * t - ball.z) / t;
-        // Add a minimum arc so the ball clears the net
-        float minVz = BallSimulator.GRAVITY * t * 0.3f;
-        if (vz < minVz) vz = minVz;
 
-        float vx = dx / dist * speed;
-        float vy = dy / dist * speed;
+        // If that flat arc would clip the net, float the shot instead: extend
+        // flight time (slower, higher arc) and re-solve so the ball still lands
+        // exactly on the target. (The old code raised vz without recomputing
+        // the landing, so clamped shots sailed meters long — phantom faults.)
+        if (Math.signum(ball.y) != Math.signum(targetY) && dy != 0f) {
+            float netFrac = Math.abs(ball.y) / Math.abs(dy); // path fraction at y=0
+            for (int i = 0; i < 12; i++) {
+                float tNet = t * netFrac;
+                float zNet = ball.z + vz * tNet - 0.5f * BallSimulator.GRAVITY * tNet * tNet;
+                if (zNet >= CourtGeometry.NET_HEIGHT + 0.25f) {
+                    break;
+                }
+                t *= 1.12f;
+                vz = (0.5f * BallSimulator.GRAVITY * t * t - ball.z) / t;
+            }
+        }
+
+        float vx = dx / t;
+        float vy = dy / t;
 
         ball.onHit(hitter, vx, vy, vz, spin);
     }

@@ -50,10 +50,11 @@ public final class AiController {
                 + (float) random.nextGaussian() * tier.placementJitter * 0.5f;
 
         // Clamp back into the box interior so jitter can never aim a guaranteed fault.
+        // Deuce box lies at x*sign <= 0 (receiver's right facing the net).
         float sign = CourtGeometry.sideSign(receiver);
-        float lateral = clamp(x * sign * (deuceCourt ? 1f : -1f),
+        float lateral = clamp(x * sign * (deuceCourt ? -1f : 1f),
                 0.35f, CourtGeometry.HALF_WIDTH - 0.35f);
-        x = lateral * (deuceCourt ? 1f : -1f) * sign;
+        x = lateral * (deuceCourt ? -1f : 1f) * sign;
         y = clamp(y * sign, 0.35f, CourtGeometry.SERVICE_LINE - 0.35f) * sign;
         return new float[] {x, y};
     }

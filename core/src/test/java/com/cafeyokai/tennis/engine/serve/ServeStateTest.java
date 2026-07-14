@@ -62,7 +62,7 @@ class ServeStateTest {
     @Test
     @DisplayName("Aim indicator is clamped inside the valid service box")
     void aimClampedToServiceBox() {
-        ServeState s = new ServeState(0, true); // receiver 1, deuce box: x>0, 0<y<6.4
+        ServeState s = new ServeState(0, true); // receiver 1, deuce box: x<0, 0<y<6.4
         s.setAim(50f, 50f);
         assertTrue(CourtGeometry.isInServiceBox(s.aimX(), s.aimY(), 1, true));
         s.setAim(-50f, -50f);
