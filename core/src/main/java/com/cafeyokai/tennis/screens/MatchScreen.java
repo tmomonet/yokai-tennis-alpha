@@ -337,6 +337,17 @@ public final class MatchScreen extends BaseScreen {
 
         ServeState.Phase sp = ss.phase();
 
+        // Phase instruction — playtest feedback: the meter flow needs guidance
+        String hint = switch (sp) {
+            case AIMING   -> "Move to aim the serve, then tap / click";
+            case POWER    -> "Tap / click to lock power";
+            case ACCURACY -> "Tap / click when the needle is centered!";
+            default       -> null;
+        };
+        if (hint != null) {
+            drawTextCentered(font, hint, COURT_ORIGIN_X, 230f, Color.ORANGE);
+        }
+
         // Always draw aim indicator
         float aimSx = courtToScreenX(ss.aimX());
         float aimSy = courtToScreenY(ss.aimY());

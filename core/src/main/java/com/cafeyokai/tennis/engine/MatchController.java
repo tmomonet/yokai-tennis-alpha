@@ -87,7 +87,7 @@ public final class MatchController {
 
     private int pointsThisGame; // used to determine deuce/ad court rotation
 
-    // Player positions (only X moves; Y is semi-fixed near baseline)
+    // Player positions (human moves freely on own half; AI X-tracks the ball)
     private float playerX = 0f;
     private float playerY = HUMAN_BASE_Y;
     private float aiX     = 0f;
@@ -143,12 +143,17 @@ public final class MatchController {
         serveState = new ServeState(currentServer, deuceCourt);
         messages.clear();
 
+        // Reset positions so the receiver starts centered for the serve
+        playerX = 0f;
+        playerY = HUMAN_BASE_Y;
+        aiX = 0f;
+
         aiReactionTimer = 0f;
         aiReactionStarted = false;
 
         if (currentServer == AI) {
-            // AI waits a random delay before executing the serve
-            aiServeTimer = 0.3f + random.nextFloat() * 0.5f;
+            // AI waits before serving so the receiver can read the point start
+            aiServeTimer = 1.4f + random.nextFloat() * 0.8f;
         }
     }
 
@@ -159,7 +164,7 @@ public final class MatchController {
     public void update(float dt, float moveX, float moveY) {
         switch (phase) {
             case SERVE_METERS  -> updateServeMeters(dt, moveX, moveY);
-            case SERVE_FLIGHT  -> updateServeFlight(dt);
+            case SERVE_FLIGHT  -> updateServeFlight(dt, moveX, moveY);
             case RALLY         -> updateRally(dt, moveX, moveY);
             case POINT_OVER    -> updatePointOver(dt);
             case MATCH_OVER    -> { /* terminal */ }
@@ -172,9 +177,10 @@ public final class MatchController {
 
     private void updateServeMeters(float dt, float moveX, float moveY) {
         if (currentServer == HUMAN) {
-            // Allow player to nudge the aim indicator with movement keys
-            float newAimX = serveState.aimX() + moveX * dt * 4f;
-            serveState.setAim(newAimX, serveState.aimY());
+            // Movement input steers the aim indicator (both axes) while serving
+            float newAimX = serveState.aimX() + moveX * dt * 5f;
+            float newAimY = serveState.aimY() + moveY * dt * 5f;
+            serveState.setAim(newAimX, newAimY);
             serveState.update(dt);
 
             if (serveState.phase() == ServeState.Phase.LAUNCHED) {
@@ -183,7 +189,8 @@ public final class MatchController {
                 awardPoint(receiver, "Double Fault!");
             }
         } else {
-            // AI serve: wait for delay then execute
+            // Receiver may position freely while waiting for the AI serve
+            movePlayer(dt, moveX, moveY);
             aiServeTimer -= dt;
             if (aiServeTimer <= 0f) {
                 executeAiServe();
@@ -242,7 +249,10 @@ public final class MatchController {
     // SERVE_FLIGHT
     // -----------------------------------------------------------------------
 
-    private void updateServeFlight(float dt) {
+    private void updateServeFlight(float dt, float moveX, float moveY) {
+        // Both server and receiver may reposition while the serve is in the air
+        movePlayer(dt, moveX, moveY);
+
         int bounces = simulator.update(ball, dt);
 
         // Net hit: always a fault
@@ -270,8 +280,7 @@ public final class MatchController {
 
     private void updateRally(float dt, float moveX, float moveY) {
         // Move human player
-        playerX = clamp(playerX + moveX * PLAYER_SPEED * dt,
-                -CourtGeometry.HALF_WIDTH, CourtGeometry.HALF_WIDTH);
+        movePlayer(dt, moveX, moveY);
 
         // Move AI toward ball if reaction delay has elapsed
         updateAiMovement(dt);
@@ -331,6 +340,14 @@ public final class MatchController {
                 executeAiReturn();
             }
         }
+    }
+
+    /** Moves the human player in both axes, clamped to their half of the court. */
+    private void movePlayer(float dt, float moveX, float moveY) {
+        playerX = clamp(playerX + moveX * PLAYER_SPEED * dt,
+                -CourtGeometry.HALF_WIDTH, CourtGeometry.HALF_WIDTH);
+        playerY = clamp(playerY + moveY * PLAYER_SPEED * dt,
+                -CourtGeometry.HALF_LENGTH, -1.5f);
     }
 
     private void updateAiMovement(float dt) {
@@ -450,6 +467,10 @@ public final class MatchController {
         } else {
             phase = Phase.SERVE_METERS;
             messages.add("Fault!");
+            if (currentServer == AI) {
+                // Pause before the AI's second serve instead of firing next frame
+                aiServeTimer = 1.0f + random.nextFloat() * 0.6f;
+            }
         }
     }
 

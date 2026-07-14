@@ -26,9 +26,15 @@ public final class ServeState {
     /** Lateral shift in meters at full needle deflection and full power. */
     public static final float MAX_LATERAL_DEVIATION = 2.2f;
     /** Power meter fill rate per second (ping-pongs between 0 and 1). */
-    public static final float POWER_FILL_RATE = 1.2f;
+    public static final float POWER_FILL_RATE = 0.9f;
     /** Accuracy needle oscillation frequency in Hz. */
-    public static final float NEEDLE_HZ = 1.5f;
+    public static final float NEEDLE_HZ = 0.6f;
+    /**
+     * Needle deflections within this band count as perfect (playtest 2026-07-14:
+     * human reaction time can't hit an exact zero-crossing). Deviation outside
+     * the band is remapped continuously so full deflection still means ±1.
+     */
+    public static final float SWEET_SPOT = 0.18f;
     /** Aim clamp inset from the box lines so the indicator stays visibly inside. */
     private static final float BOX_MARGIN = 0.3f;
 
@@ -125,9 +131,13 @@ public final class ServeState {
     }
 
     private void computeLaunch() {
+        // Sweet-spot band: small mistimes count as perfect; beyond it the miss
+        // rescales so a full deflection is still ±1.
+        float missMag = Math.max(0f, Math.abs(lockedAccuracy) - SWEET_SPOT) / (1f - SWEET_SPOT);
+        float miss = Math.copySign(missMag, lockedAccuracy);
         // Fault margin grows with power (FR-022): the same needle miss drifts
         // further at high power.
-        float deviation = lockedAccuracy * MAX_LATERAL_DEVIATION * (0.4f + 0.6f * lockedPower);
+        float deviation = miss * MAX_LATERAL_DEVIATION * (0.4f + 0.6f * lockedPower);
         landingX = aimX + deviation;
         landingY = aimY;
         serveSpeed = MIN_SPEED + lockedPower * (MAX_SPEED - MIN_SPEED);
