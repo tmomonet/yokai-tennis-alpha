@@ -49,7 +49,7 @@
 
 - [ ] T026 [US4] Tuning pass: play-test gestures on desktop, adjust GestureTuning until all four shot types are reliably producible (Success Criterion 4) and Medium AI is winnable AND losable (Criterion 5); if apex-jerk cannot be stabilized, STOP and ask user before falling back to lob/smash-only (spec-sanctioned fallback) — core/src/main/java/com/cafeyokai/tennis/engine/gesture/GestureTuning.java, engine/ai/
 - [ ] T027 [US5] Full definition-of-done verification: `gradlew test` green; `gradlew desktop:run` complete demo (menu → char select → Patreon gate on locked tap → free char → court → full best-of-3 vs Medium AI → score screen); `gradlew android:assembleDebug` APK; fix any fallout — whole repo
-- [ ] T028 [US5] Update `.specswarm/tech-stack.md` "Current build.gradle.kts state" line to describe the new module layout (FR-055); confirm quickstart.md commands match reality — .specswarm/tech-stack.md, .specswarm/features/001-mvp-gameplay-desktop-android/quickstart.md
+- [X] T028 [US5] Update `.specswarm/tech-stack.md` "Current build.gradle.kts state" line to describe the new module layout (FR-055); confirm quickstart.md commands match reality — .specswarm/tech-stack.md, .specswarm/features/001-mvp-gameplay-desktop-android/quickstart.md
 
 ## Dependencies
 

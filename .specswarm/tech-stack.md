@@ -4,12 +4,16 @@
 
 ## Status note
 
-`build.gradle.kts` currently only declares the `java` plugin + JUnit Jupiter — none of the
-below are wired up yet. This file declares the **target** stack per `src/SPEC.md` so future
-`/ss:build` work builds toward the intended architecture instead of drifting. Update the
-"Current build.gradle.kts state" line each time a module lands.
+The multi-module layout from Feature 001 is live. This file declares the **target** stack per
+`src/SPEC.md` so future `/ss:build` work builds toward the intended architecture instead of
+drifting. Update the "Current build.gradle.kts state" line each time a module lands.
 
-Current build.gradle.kts state: `java` plugin, JUnit 6 (jupiter) via `junit-bom`.
+Current build.gradle.kts state (Feature 001, updated 2026-07-14): root build.gradle.kts is a
+thin aggregator (no `java` plugin); modules are `:core` (java-library, release=17, LibGDX
+1.14.2 api, JUnit 6 jupiter via `junit-bom` — all game logic, screens, engine),
+`:desktop` (gdx-backend-lwjgl3 + natives-desktop, `DesktopLauncher` 1280×720), and
+`:android` (AGP 9.0.0, compileSdk 36 + compileSdkMinor 1, targetSdk 35, minSdk 21,
+landscape-locked, gdx-backend-android + arm/x86 natives). Gradle wrapper 9.4.1.
 
 ## Language
 
