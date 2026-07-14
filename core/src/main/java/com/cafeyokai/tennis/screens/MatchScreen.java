@@ -17,44 +17,60 @@ import com.cafeyokai.tennis.input.MatchInput;
 import java.util.Optional;
 
 /**
- * Full-gameplay match screen (T021-T025, Phase 4).
+ * Full-gameplay match screen (T021-T025, Phase 4; perspective view added in
+ * the T026 tuning pass, reference: Mario Tennis GBC).
  *
- * Renders a top-down court, ball with height shadow, character sprites, HUD
- * score, and serve-meter UI. Delegates all game logic to MatchController.
+ * Renders a behind-the-player pseudo-3D court: the near (human) baseline is
+ * wide, the far (AI) baseline is ~72% of its width, the near half of the
+ * court takes more vertical screen space than the far half, and sprite sizes
+ * shrink with depth. Delegates all game logic to MatchController.
  *
- * Coordinate conversion (engine meters → virtual pixels):
- *   screenX = COURT_ORIGIN_X + engineX * SCALE
- *   screenY = COURT_ORIGIN_Y + engineY * SCALE
- * Engine Y points toward AI (positive = AI side); screen Y points up (LibGDX
- * convention). Player 0 (human) is at negative Y = bottom of the screen.
+ * Projection model — a virtual camera CAM_BACK meters behind the near
+ * baseline. For an engine point (x, y) (meters, y positive toward the AI):
+ *   Z(y)        = y + HALF_LENGTH + CAM_BACK          (distance from camera)
+ *   screenX     = CENTER_X + x * K_W / Z(y)
+ *   groundRow   = HORIZON_Y - K_Y / Z(y)              (perspective-correct)
+ *   pixelsPerM  = K_W / Z(y)                          (sprite/height scale)
+ * K_Y and HORIZON_Y are derived so the near baseline lands on NEAR_ROW and
+ * the far baseline on FAR_ROW.
  */
 public final class MatchScreen extends BaseScreen {
 
     // -----------------------------------------------------------------------
-    // Layout constants
+    // Perspective constants
     // -----------------------------------------------------------------------
 
-    /** Pixels per meter. */
-    private static final float SCALE = 26f;
+    private static final float CENTER_X = 640f;
 
-    /** Screen-space court center. */
-    private static final float COURT_ORIGIN_X = 640f;
-    private static final float COURT_ORIGIN_Y = 370f;
+    /** Camera distance behind the near baseline (meters). Larger = milder perspective. */
+    private static final float CAM_BACK = 61f;
+    /** Width focal constant (px·m): near half-width ≈ 340 px, far ≈ 245 px. */
+    private static final float K_W = 5040f;
 
-    /** Court half-size in screen pixels. */
-    private static final float HALF_W_PX = CourtGeometry.HALF_WIDTH  * SCALE;
-    private static final float HALF_L_PX = CourtGeometry.HALF_LENGTH * SCALE;
+    /** Screen row of the near (human) baseline. */
+    private static final float NEAR_ROW = 70f;
+    /** Screen row of the far (AI) baseline. */
+    private static final float FAR_ROW = 555f;
 
-    /** Net height at center for rendering purposes (visual band). */
-    private static final float NET_BAND_HEIGHT = 4f;
+    private static final float Z_NEAR = CAM_BACK;
+    private static final float Z_FAR  = CAM_BACK + 2f * CourtGeometry.HALF_LENGTH;
+    /** Ground-row focal constant, derived from the two anchor rows. */
+    private static final float K_Y = (FAR_ROW - NEAR_ROW) / (1f / Z_NEAR - 1f / Z_FAR);
+    /** Vanishing row for the ground plane (off-screen above the viewport). */
+    private static final float HORIZON_Y = NEAR_ROW + K_Y / Z_NEAR;
 
-    /** Ball sprite size at z = 0 (on the ground). Scales up with height. */
-    private static final float BALL_BASE_SIZE = 14f;
-    /** Shadow base size (always at z = 0 projection). */
-    private static final float SHADOW_SIZE = 10f;
+    /** Grass apron drawn around the court lines (meters). */
+    private static final float APRON_M = 2.2f;
+    /** Court strip height in engine meters (drawing resolution). */
+    private static final float STRIP_M = 0.15f;
 
-    /** Player sprite size. */
-    private static final float PLAYER_SIZE = 48f;
+    /** Net height for rendering (meters). */
+    private static final float NET_M = 0.95f;
+
+    /** Sprite sizes in meters (converted per-depth to pixels). */
+    private static final float PLAYER_M = 0.9f;
+    private static final float BALL_M = 0.24f;
+    private static final float SHADOW_M = 0.22f;
 
     /** HUD Y positions. */
     private static final float HUD_Y   = 700f;
@@ -79,6 +95,13 @@ public final class MatchScreen extends BaseScreen {
     private final GestureClassifier gestureClassifier =
             new GestureClassifier(GestureTuning.defaults());
 
+    // Ball motion trail (screen-space ghost positions, oldest first)
+    private static final int TRAIL_LEN = 7;
+    private final float[] trailX = new float[TRAIL_LEN];
+    private final float[] trailY = new float[TRAIL_LEN];
+    private final float[] trailSize = new float[TRAIL_LEN];
+    private int trailCount = 0;
+
     // -----------------------------------------------------------------------
     // Constructor
     // -----------------------------------------------------------------------
@@ -91,6 +114,30 @@ public final class MatchScreen extends BaseScreen {
         input = new MatchInput();
         // Forfeit button — bottom left
         addButton("Forfeit", 20f, 20f, 120f, 40f, game::showMainMenu);
+    }
+
+    // -----------------------------------------------------------------------
+    // Projection helpers
+    // -----------------------------------------------------------------------
+
+    /** Camera distance for an engine Y (meters). */
+    private static float depth(float engineY) {
+        return engineY + CourtGeometry.HALF_LENGTH + CAM_BACK;
+    }
+
+    /** Screen row where the ground plane at engine Y is drawn. */
+    private static float groundRow(float engineY) {
+        return HORIZON_Y - K_Y / depth(engineY);
+    }
+
+    /** Screen X for an engine (x, y) ground point. */
+    private static float screenX(float engineX, float engineY) {
+        return CENTER_X + engineX * K_W / depth(engineY);
+    }
+
+    /** Pixels per engine meter at the given depth (sprite/height scale). */
+    private static float ppm(float engineY) {
+        return K_W / depth(engineY);
     }
 
     // -----------------------------------------------------------------------
@@ -132,8 +179,17 @@ public final class MatchScreen extends BaseScreen {
             transientMessage = "";
         }
 
-        // 6. Handle match-over transition
-        if (match.getPhase() == MatchController.Phase.MATCH_OVER) {
+        // 6. Ball trail sampling — only while the ball is actually in flight
+        MatchController.Phase phase = match.getPhase();
+        if (phase == MatchController.Phase.SERVE_FLIGHT
+                || phase == MatchController.Phase.RALLY) {
+            pushTrailSample();
+        } else {
+            trailCount = 0;
+        }
+
+        // 7. Handle match-over transition
+        if (phase == MatchController.Phase.MATCH_OVER) {
             if (matchOverTimer < 0f) {
                 matchOverTimer = MATCH_OVER_LINGER;
             }
@@ -146,122 +202,177 @@ public final class MatchScreen extends BaseScreen {
 
     @Override
     protected void draw(float delta) {
+        BallState ball = match.getBall();
+
         drawCourt();
-        drawBallShadow();
-        drawBall();
-        drawPlayers();
+
+        // Far side of the net (drawn first so the net occludes it)
+        drawPlayer(false);
+        if (ball.y > 0f) {
+            drawBallShadow(ball);
+            drawBallTrail();
+            drawBall(ball);
+        }
+
+        drawNet();
+
+        // Near side of the net
+        drawPlayer(true);
+        if (ball.y <= 0f) {
+            drawBallShadow(ball);
+            drawBallTrail();
+            drawBall(ball);
+        }
+
         drawHUD();
         if (messageTimer > 0f && !transientMessage.isEmpty()) {
-            drawTextCentered(font, transientMessage, COURT_ORIGIN_X, 450f, Color.YELLOW);
+            drawTextCentered(font, transientMessage, CENTER_X, 450f, Color.YELLOW);
         }
         // Joystick overlays on touch
         input.render(batch, game.sprites);
     }
 
     // -----------------------------------------------------------------------
-    // Court drawing
+    // Court drawing (perspective trapezoid, strip by strip)
     // -----------------------------------------------------------------------
 
     private void drawCourt() {
-        // Court surface (dark green)
-        drawRect(
-            COURT_ORIGIN_X - HALF_W_PX,
-            COURT_ORIGIN_Y - HALF_L_PX,
-            HALF_W_PX * 2f,
-            HALF_L_PX * 2f,
-            0.08f, 0.28f, 0.14f, 1f
-        );
+        float extent = CourtGeometry.HALF_LENGTH + APRON_M;
 
-        // Court outline (white)
-        drawRectOutline(
-            COURT_ORIGIN_X - HALF_W_PX,
-            COURT_ORIGIN_Y - HALF_L_PX,
-            HALF_W_PX * 2f,
-            HALF_L_PX * 2f,
-            1f, 1f, 1f, 1f
-        );
+        // Surface strips: apron + court, shaded slightly darker with distance
+        for (float y = -extent; y < extent; y += STRIP_M) {
+            float rowBottom = groundRow(y);
+            float rowTop = groundRow(Math.min(y + STRIP_M, extent));
+            float h = rowTop - rowBottom + 1f;
+            float scale = ppm(y);
+            float t = (y + extent) / (2f * extent); // 0 near → 1 far
+            float shade = 1f - 0.22f * t;
 
-        // Service lines (parallel to net)
-        float svcPx = CourtGeometry.SERVICE_LINE * SCALE;
-        // Player-0 side service line (y = -SERVICE_LINE)
-        drawRect(COURT_ORIGIN_X - HALF_W_PX, COURT_ORIGIN_Y - svcPx - 1f,
-                 HALF_W_PX * 2f, 2f,
-                 1f, 1f, 1f, 0.8f);
-        // AI side service line (y = +SERVICE_LINE)
-        drawRect(COURT_ORIGIN_X - HALF_W_PX, COURT_ORIGIN_Y + svcPx - 1f,
-                 HALF_W_PX * 2f, 2f,
-                 1f, 1f, 1f, 0.8f);
+            float apronHalf = (CourtGeometry.HALF_WIDTH + APRON_M) * scale;
+            drawRect(CENTER_X - apronHalf, rowBottom, apronHalf * 2f, h,
+                    0.05f * shade, 0.17f * shade, 0.09f * shade, 1f);
 
-        // Center service line (vertical, between the two service lines)
-        drawRect(COURT_ORIGIN_X - 1f, COURT_ORIGIN_Y - svcPx,
-                 2f, svcPx * 2f,
-                 1f, 1f, 1f, 0.7f);
+            if (Math.abs(y) <= CourtGeometry.HALF_LENGTH) {
+                float courtHalf = CourtGeometry.HALF_WIDTH * scale;
+                drawRect(CENTER_X - courtHalf, rowBottom, courtHalf * 2f, h,
+                        0.09f * shade, 0.30f * shade, 0.15f * shade, 1f);
+            }
+        }
 
-        // Net — white band across y = 0
-        drawRect(COURT_ORIGIN_X - HALF_W_PX,
-                 COURT_ORIGIN_Y - NET_BAND_HEIGHT / 2f,
-                 HALF_W_PX * 2f, NET_BAND_HEIGHT,
-                 1f, 1f, 1f, 1f);
+        // Sidelines (converging trapezoid edges)
+        for (float y = -CourtGeometry.HALF_LENGTH; y < CourtGeometry.HALF_LENGTH; y += STRIP_M) {
+            float rowBottom = groundRow(y);
+            float rowTop = groundRow(Math.min(y + STRIP_M, CourtGeometry.HALF_LENGTH));
+            float h = rowTop - rowBottom + 1f;
+            float half = CourtGeometry.HALF_WIDTH * ppm(y);
+            drawRect(CENTER_X - half - 1.5f, rowBottom, 3f, h, 1f, 1f, 1f, 0.9f);
+            drawRect(CENTER_X + half - 1.5f, rowBottom, 3f, h, 1f, 1f, 1f, 0.9f);
+        }
+
+        // Baselines and service lines (horizontal, width matched to depth)
+        drawCourtLine(-CourtGeometry.HALF_LENGTH, 3f, 1f);
+        drawCourtLine(CourtGeometry.HALF_LENGTH, 2f, 1f);
+        drawCourtLine(-CourtGeometry.SERVICE_LINE, 2f, 0.8f);
+        drawCourtLine(CourtGeometry.SERVICE_LINE, 2f, 0.8f);
+
+        // Center service line: x = 0 projects to CENTER_X at every depth
+        float centerBottom = groundRow(-CourtGeometry.SERVICE_LINE);
+        float centerTop = groundRow(CourtGeometry.SERVICE_LINE);
+        drawRect(CENTER_X - 1f, centerBottom, 2f, centerTop - centerBottom, 1f, 1f, 1f, 0.7f);
+    }
+
+    /** Horizontal court line at the given engine Y, spanning the court width there. */
+    private void drawCourtLine(float engineY, float thickness, float alpha) {
+        float half = CourtGeometry.HALF_WIDTH * ppm(engineY);
+        drawRect(CENTER_X - half, groundRow(engineY) - thickness / 2f,
+                half * 2f, thickness, 1f, 1f, 1f, alpha);
+    }
+
+    private void drawNet() {
+        float row = groundRow(0f);
+        float scale = ppm(0f);
+        float half = CourtGeometry.HALF_WIDTH * scale;
+        float netH = NET_M * scale;
+
+        // Posts just outside the sidelines
+        drawRect(CENTER_X - half - 5f, row, 6f, netH + 6f, 0.85f, 0.85f, 0.9f, 1f);
+        drawRect(CENTER_X + half - 1f, row, 6f, netH + 6f, 0.85f, 0.85f, 0.9f, 1f);
+
+        // Net band with white tape on top
+        drawRect(CENTER_X - half, row, half * 2f, netH, 0.13f, 0.17f, 0.30f, 0.95f);
+        drawRect(CENTER_X - half, row + netH - 4f, half * 2f, 4f, 1f, 1f, 1f, 1f);
     }
 
     // -----------------------------------------------------------------------
     // Ball drawing
     // -----------------------------------------------------------------------
 
-    private void drawBallShadow() {
-        BallState ball = match.getBall();
-        float sx = courtToScreenX(ball.x);
-        float sy = courtToScreenY(ball.y);
-        // Shadow is always at z = 0 projection (same XY as ball but on the court)
+    private void drawBallShadow(BallState ball) {
+        float scale = ppm(ball.y);
+        float w = SHADOW_M * scale;
+        float sx = screenX(ball.x, ball.y);
+        float sy = groundRow(ball.y);
         TextureRegion ballTex = game.sprites.byKey("ball");
         batch.setColor(0f, 0f, 0f, 0.4f);
-        batch.draw(ballTex,
-                sx - SHADOW_SIZE / 2f,
-                sy - SHADOW_SIZE / 2f,
-                SHADOW_SIZE, SHADOW_SIZE);
+        batch.draw(ballTex, sx - w / 2f, sy - w * 0.2f, w, w * 0.4f);
         batch.setColor(Color.WHITE);
     }
 
-    private void drawBall() {
+    private void pushTrailSample() {
         BallState ball = match.getBall();
-        float sx = courtToScreenX(ball.x);
-        float sy = courtToScreenY(ball.y);
-        // Ball appears above its shadow by its height z
-        float heightOffsetPx = ball.z * SCALE;
-        float size = BALL_BASE_SIZE + ball.z * 4f; // bigger when higher
+        float scale = ppm(ball.y);
+        float sx = screenX(ball.x, ball.y);
+        float sy = groundRow(ball.y) + ball.z * scale;
+        if (trailCount == TRAIL_LEN) {
+            System.arraycopy(trailX, 1, trailX, 0, TRAIL_LEN - 1);
+            System.arraycopy(trailY, 1, trailY, 0, TRAIL_LEN - 1);
+            System.arraycopy(trailSize, 1, trailSize, 0, TRAIL_LEN - 1);
+            trailCount--;
+        }
+        trailX[trailCount] = sx;
+        trailY[trailCount] = sy;
+        trailSize[trailCount] = BALL_M * scale;
+        trailCount++;
+    }
+
+    /** Comet trail behind the ball (reference image) — helps track fast serves. */
+    private void drawBallTrail() {
+        TextureRegion ballTex = game.sprites.byKey("ball");
+        for (int i = 0; i < trailCount - 1; i++) {
+            float f = (i + 1f) / TRAIL_LEN; // older = smaller & fainter
+            float size = trailSize[i] * (0.4f + 0.4f * f);
+            batch.setColor(1f, 0.75f, 0.2f, 0.28f * f);
+            batch.draw(ballTex,
+                    trailX[i] - size / 2f,
+                    trailY[i] - size / 2f,
+                    size, size);
+        }
+        batch.setColor(Color.WHITE);
+    }
+
+    private void drawBall(BallState ball) {
+        float scale = ppm(ball.y);
+        float size = BALL_M * scale;
+        float sx = screenX(ball.x, ball.y);
+        float sy = groundRow(ball.y) + ball.z * scale;
         TextureRegion ballTex = game.sprites.byKey("ball");
         batch.setColor(0.95f, 0.93f, 0.25f, 1f);
-        batch.draw(ballTex,
-                sx - size / 2f,
-                sy - size / 2f + heightOffsetPx,
-                size, size);
+        batch.draw(ballTex, sx - size / 2f, sy - size / 2f, size, size);
         batch.setColor(Color.WHITE);
     }
 
     // -----------------------------------------------------------------------
-    // Player drawing
+    // Player drawing (bottom-anchored so feet stand on the court)
     // -----------------------------------------------------------------------
 
-    private void drawPlayers() {
-        // Human player (bottom)
-        String humanKey = playerSpriteKey(true);
-        TextureRegion humanTex = game.sprites.byKey(humanKey);
-        float hx = courtToScreenX(match.getPlayerX());
-        float hy = courtToScreenY(match.getPlayerY());
-        batch.draw(humanTex,
-                hx - PLAYER_SIZE / 2f,
-                hy - PLAYER_SIZE / 2f,
-                PLAYER_SIZE, PLAYER_SIZE);
-
-        // AI player (top)
-        String aiKey = playerSpriteKey(false);
-        TextureRegion aiTex = game.sprites.byKey(aiKey);
-        float ax = courtToScreenX(match.getAiX());
-        float ay = courtToScreenY(match.getAiY());
-        batch.draw(aiTex,
-                ax - PLAYER_SIZE / 2f,
-                ay - PLAYER_SIZE / 2f,
-                PLAYER_SIZE, PLAYER_SIZE);
+    private void drawPlayer(boolean human) {
+        float ex = human ? match.getPlayerX() : match.getAiX();
+        float ey = human ? match.getPlayerY() : match.getAiY();
+        float size = PLAYER_M * ppm(ey);
+        float sx = screenX(ex, ey);
+        float sy = groundRow(ey);
+        TextureRegion tex = game.sprites.byKey(playerSpriteKey(human));
+        batch.draw(tex, sx - size / 2f, sy, size, size);
     }
 
     /**
@@ -298,7 +409,7 @@ public final class MatchScreen extends BaseScreen {
             score.games(0), score.games(1),
             score.displayPoints(0), score.displayPoints(1)
         );
-        drawTextCentered(font, scoreText, COURT_ORIGIN_X, HUD_Y, Color.WHITE);
+        drawTextCentered(font, scoreText, CENTER_X, HUD_Y, Color.WHITE);
 
         // Serve indicator
         MatchController.Phase phase = match.getPhase();
@@ -322,7 +433,7 @@ public final class MatchScreen extends BaseScreen {
         // Match-over banner
         if (phase == MatchController.Phase.MATCH_OVER) {
             String banner = match.humanWon() ? "YOU WIN!" : "GAME, SET, MATCH";
-            drawTextCentered(titleFont, banner, COURT_ORIGIN_X, 400f,
+            drawTextCentered(titleFont, banner, CENTER_X, 400f,
                     match.humanWon() ? Color.YELLOW : Color.RED);
         }
     }
@@ -345,33 +456,43 @@ public final class MatchScreen extends BaseScreen {
             default       -> null;
         };
         if (hint != null) {
-            drawTextCentered(font, hint, COURT_ORIGIN_X, 230f, Color.ORANGE);
+            drawTextCentered(font, hint, CENTER_X, 250f, Color.ORANGE);
         }
 
-        // Always draw aim indicator
-        float aimSx = courtToScreenX(ss.aimX());
-        float aimSy = courtToScreenY(ss.aimY());
-        // Yellow crosshair
+        // Serve button (tap anywhere works; this is the visible affordance)
+        String btnLabel = switch (sp) {
+            case AIMING   -> "TAP TO TOSS";
+            case POWER    -> "TAP: LOCK POWER";
+            case ACCURACY -> "TAP: HIT!";
+            default       -> null;
+        };
+        if (btnLabel != null) {
+            drawRect(540f, 18f, 200f, 50f, 0.80f, 0.50f, 0.10f, 0.92f);
+            drawRectOutline(540f, 18f, 200f, 50f, 1f, 1f, 1f, 1f);
+            drawTextCentered(font, btnLabel, CENTER_X, 43f, Color.WHITE);
+        }
+
+        // Aim indicator (yellow crosshair, projected onto the far court)
+        float aimSx = screenX(ss.aimX(), ss.aimY());
+        float aimSy = groundRow(ss.aimY());
         drawRect(aimSx - 8f, aimSy - 1f, 16f, 2f, 1f, 1f, 0f, 0.9f);
         drawRect(aimSx - 1f, aimSy - 8f, 2f, 16f, 1f, 1f, 0f, 0.9f);
 
-        // Aim timer (10s countdown bar)
-        float timerFrac = ss.aimTimeRemaining() / ServeState.AIM_WINDOW_SECONDS;
-        float barX = COURT_ORIGIN_X - 100f;
-        float barY = 80f;
-        float barW = 200f;
-        float barH = 12f;
-        drawRect(barX, barY, barW, barH, 0.2f, 0.2f, 0.2f, 0.8f);
-        drawRect(barX, barY, barW * timerFrac, barH, 0.3f, 0.8f, 0.3f, 1f);
-        drawText(font, "Aim", barX, barY + 28f, Color.LIGHT_GRAY);
+        // Auto-serve notice only when the (generous) window is nearly up —
+        // no countdown bar (playtest 2026-07-14: the timer read as pressure)
+        if (sp == ServeState.Phase.AIMING && ss.aimTimeRemaining() < 5f) {
+            int secs = (int) Math.ceil(ss.aimTimeRemaining());
+            drawTextCentered(font, "Auto-serve in " + secs + "s",
+                    CENTER_X, 280f, Color.LIGHT_GRAY);
+        }
 
         if (sp == ServeState.Phase.POWER || sp == ServeState.Phase.ACCURACY) {
-            // Power bar
+            // Power bar (vertical, left of the serve button)
             float powerFrac = ss.powerMeter();
-            float powerX = barX - 30f;
-            float powerY = 100f;
-            float powerH = 80f;
-            float powerW = 18f;
+            float powerX = 470f;
+            float powerY = 80f;
+            float powerH = 100f;
+            float powerW = 20f;
             drawRect(powerX, powerY, powerW, powerH, 0.1f, 0.1f, 0.1f, 0.9f);
             float fillH = powerH * powerFrac;
             float fillColor = powerFrac < 0.5f ? 0.3f : powerFrac;
@@ -380,37 +501,21 @@ public final class MatchScreen extends BaseScreen {
         }
 
         if (sp == ServeState.Phase.ACCURACY) {
-            // Accuracy needle bar
+            // Accuracy needle bar (horizontal, above the serve button)
             float needle = ss.accuracyNeedle(); // [-1, 1]
-            float needleX = barX;
-            float needleY = 50f;
-            float needleW = barW;
-            float needleH = 10f;
+            float needleX = 540f;
+            float needleY = 90f;
+            float needleW = 200f;
+            float needleH = 12f;
             drawRect(needleX, needleY, needleW, needleH, 0.15f, 0.15f, 0.15f, 0.9f);
+            // Sweet-spot band in the middle
+            float bandW = needleW * ServeState.SWEET_SPOT;
+            drawRect(needleX + needleW / 2f - bandW / 2f, needleY, bandW, needleH,
+                    0.2f, 0.7f, 0.25f, 0.9f);
             // Needle position: map -1..1 to 0..needleW
             float nPos = (needle + 1f) / 2f * needleW;
             drawRect(needleX + nPos - 2f, needleY - 4f, 4f, needleH + 8f, 1f, 0.2f, 0.2f, 1f);
-            drawText(font, "ACC", needleX, needleY + 26f, Color.LIGHT_GRAY);
+            drawText(font, "ACC", needleX - 40f, needleY + 10f, Color.LIGHT_GRAY);
         }
-    }
-
-    // -----------------------------------------------------------------------
-    // Coordinate conversion helpers
-    // -----------------------------------------------------------------------
-
-    /** Engine X (meters, signed) → virtual screen X (pixels). */
-    private static float courtToScreenX(float engineX) {
-        return COURT_ORIGIN_X + engineX * SCALE;
-    }
-
-    /**
-     * Engine Y (meters, signed; negative = human/bottom side) → virtual screen Y.
-     * Engine Y = -HALF_LENGTH is the human baseline (bottom of view).
-     * Engine Y = +HALF_LENGTH is the AI baseline (top of view).
-     * No flip needed since LibGDX batch origin is bottom-left and the court is
-     * symmetric — positive engine Y should map to higher screen Y.
-     */
-    private static float courtToScreenY(float engineY) {
-        return COURT_ORIGIN_Y + engineY * SCALE;
     }
 }

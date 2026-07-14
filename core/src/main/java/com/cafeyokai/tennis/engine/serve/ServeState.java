@@ -5,22 +5,23 @@ import com.cafeyokai.tennis.engine.physics.CourtGeometry;
 /**
  * Serve state machine for one point (SPEC.md Serve Mechanic, FR-020..023):
  *
- * AIMING (10 s window, aim indicator clamped to the valid service box; tap
- * confirms) → POWER (meter fills upward and ping-pongs; tap locks) →
+ * AIMING (15 s window, aim indicator clamped to the valid service box; tap
+ * confirms, window expiry auto-confirms — playtest 2026-07-14 removed the
+ * expiry fault) → POWER (meter fills upward and ping-pongs; tap locks) →
  * ACCURACY (swinging needle; tap samples) → LAUNCHED. Needle deviation from
  * center shifts the landing laterally, scaled up by locked power — higher
  * power serves faster but with a larger fault margin (FR-022).
  *
- * Faults: aim-window expiry, or a computed landing outside the service box
- * (the caller checks {@link #isFaultLanding()} and reports via
- * {@link #registerFault()}). Two faults on one point is a DOUBLE_FAULT; the
- * caller awards the point to the receiver (scoring contract rule 9).
+ * Faults: a computed landing outside the service box (the caller checks
+ * {@link #isFaultLanding()} and reports via {@link #registerFault()}).
+ * Two faults on one point is a DOUBLE_FAULT; the caller awards the point
+ * to the receiver (scoring contract rule 9).
  */
 public final class ServeState {
 
     public enum Phase { AIMING, POWER, ACCURACY, LAUNCHED, DOUBLE_FAULT }
 
-    public static final float AIM_WINDOW_SECONDS = 10f;
+    public static final float AIM_WINDOW_SECONDS = 15f;
     public static final float MIN_SPEED = 18f;
     public static final float MAX_SPEED = 36f;
     /** Lateral shift in meters at full needle deflection and full power. */
@@ -70,7 +71,7 @@ public final class ServeState {
             case AIMING -> {
                 aimTimer -= dt;
                 if (aimTimer <= 0f) {
-                    registerFault(); // window expiry counts as a fault (FR-022)
+                    tap(); // expiry auto-confirms the current aim (no fault)
                 }
             }
             case POWER -> {

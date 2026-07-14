@@ -8,9 +8,11 @@ package com.cafeyokai.tennis.engine.ai;
  */
 public enum DifficultyTier {
 
-    EASY(20f, 0.0f, 1.0f, 0.35f, SpinRead.IGNORE),
-    MEDIUM(27f, 0.5f, 0.6f, 0.22f, SpinRead.DELAYED),
-    HARD(34f, 0.9f, 0.25f, 0.12f, SpinRead.ANTICIPATE);
+    // Serve speeds lowered from 20/27/34 after playtest 2026-07-14: the human
+    // receiver could not physically reach a 27 m/s serve.
+    EASY(17f, 0.0f, 1.0f, 0.35f, SpinRead.IGNORE),
+    MEDIUM(22f, 0.5f, 0.6f, 0.22f, SpinRead.DELAYED),
+    HARD(28f, 0.9f, 0.25f, 0.12f, SpinRead.ANTICIPATE);
 
     public enum SpinRead { IGNORE, DELAYED, ANTICIPATE }
 

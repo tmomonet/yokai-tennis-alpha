@@ -36,22 +36,23 @@ class ServeStateTest {
     }
 
     @Test
-    @DisplayName("Aim window expiry counts as a fault and resets for a second serve")
-    void aimWindowExpiryIsFault() {
+    @DisplayName("Aim window expiry auto-confirms the aim (no fault, playtest 2026-07-14)")
+    void aimWindowExpiryAutoConfirms() {
         ServeState s = new ServeState(0, true);
         s.update(ServeState.AIM_WINDOW_SECONDS + 0.1f);
-        assertEquals(1, s.faultCount());
-        assertTrue(s.isSecondServe());
-        assertEquals(ServeState.Phase.AIMING, s.phase());
-        assertEquals(ServeState.AIM_WINDOW_SECONDS, s.aimTimeRemaining(), 1e-4);
+        assertEquals(0, s.faultCount());
+        assertFalse(s.isSecondServe());
+        assertEquals(ServeState.Phase.POWER, s.phase());
     }
 
     @Test
     @DisplayName("Two consecutive faults are a double fault; the point goes to the receiver")
     void doubleFaultAwardsReceiver() {
         ServeState s = new ServeState(1, false);
-        s.update(ServeState.AIM_WINDOW_SECONDS + 1f); // first fault
-        s.update(ServeState.AIM_WINDOW_SECONDS + 1f); // second fault
+        s.registerFault(); // e.g. first serve lands out
+        assertTrue(s.isSecondServe());
+        assertEquals(ServeState.Phase.AIMING, s.phase());
+        s.registerFault(); // second serve also out
         assertTrue(s.isDoubleFault());
         assertEquals(ServeState.Phase.DOUBLE_FAULT, s.phase());
         // Receiver of server 1 is player 0 — the caller awards them the point.

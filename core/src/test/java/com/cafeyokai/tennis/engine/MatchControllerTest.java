@@ -31,21 +31,21 @@ class MatchControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("ServeState double fault: two window expirations award point to receiver")
+    @DisplayName("ServeState double fault: two registered faults award point to receiver")
     void serveStateDoubleFaultAwardsReceiver() {
         // Test the ServeState directly (no MatchController needed for this invariant).
         // MatchController delegates fault handling to ServeState; this verifies the contract.
         ServeState ss = new ServeState(0, true); // player 0 serves
         assertEquals(ServeState.Phase.AIMING, ss.phase());
 
-        // First window expiry → first fault
-        ss.update(ServeState.AIM_WINDOW_SECONDS + 0.1f);
+        // First fault (e.g. serve lands out of the box)
+        ss.registerFault();
         assertEquals(1, ss.faultCount());
         assertEquals(ServeState.Phase.AIMING, ss.phase());
         assertTrue(ss.isSecondServe());
 
-        // Second window expiry → double fault
-        ss.update(ServeState.AIM_WINDOW_SECONDS + 0.1f);
+        // Second fault → double fault
+        ss.registerFault();
         assertEquals(2, ss.faultCount());
         assertTrue(ss.isDoubleFault());
         assertEquals(ServeState.Phase.DOUBLE_FAULT, ss.phase());
@@ -89,11 +89,11 @@ class MatchControllerTest {
             return;
         }
 
-        // Human serves: expire the aim window twice
-        mc.update(ServeState.AIM_WINDOW_SECONDS + 0.5f, 0f, 0f); // first fault
+        // Human serves: force two out-landing faults (full power + worst needle timing)
+        forceHumanFault(mc); // first fault
         // Phase should be SERVE_METERS again (second serve)
         if (mc.getPhase() == MatchController.Phase.SERVE_METERS) {
-            mc.update(ServeState.AIM_WINDOW_SECONDS + 0.5f, 0f, 0f); // double fault
+            forceHumanFault(mc); // double fault
         }
 
         // After double fault, we should be in POINT_OVER (double fault triggers awardPoint → POINT_OVER)
@@ -259,6 +259,20 @@ class MatchControllerTest {
     // -----------------------------------------------------------------------
     // Helper utilities
     // -----------------------------------------------------------------------
+
+    /**
+     * Forces a serve fault deterministically: max power plus an immediate
+     * accuracy tap (needle at -1) drifts the landing out of the service box.
+     */
+    private static void forceHumanFault(MatchController mc) {
+        ServeState ss = mc.getServeState();
+        mc.meterTap(); // AIMING → POWER
+        while (ss.powerMeter() < 0.97f) {
+            mc.update(0.001f, 0f, 0f); // charge on the first ascent
+        }
+        mc.meterTap(); // POWER → ACCURACY
+        mc.meterTap(); // needle still at -1 → max deviation → out of box
+    }
 
     /** Advances simulation until the phase changes from {@code stuckPhase}. */
     private static void runUntilPhaseChange(MatchController mc,

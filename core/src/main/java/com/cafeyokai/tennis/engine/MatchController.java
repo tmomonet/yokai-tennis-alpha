@@ -96,8 +96,13 @@ public final class MatchController {
     // Point-over cooldown
     private float pointOverTimer;
 
-    // AI serve delay
+    /** AI serve windup (ball-toss telegraph) duration in seconds. */
+    private static final float AI_WINDUP_DURATION = 0.9f;
+
+    // AI serve delay, then a visible windup so the serve is telegraphed
     private float aiServeTimer;
+    private float aiWindupTimer;
+    private boolean aiWindingUp;
 
     // AI reaction delay after ball crosses net
     private float aiReactionTimer = 0f;
@@ -150,6 +155,7 @@ public final class MatchController {
 
         aiReactionTimer = 0f;
         aiReactionStarted = false;
+        aiWindingUp = false;
 
         if (currentServer == AI) {
             // AI waits before serving so the receiver can read the point start
@@ -191,9 +197,23 @@ public final class MatchController {
         } else {
             // Receiver may position freely while waiting for the AI serve
             movePlayer(dt, moveX, moveY);
-            aiServeTimer -= dt;
-            if (aiServeTimer <= 0f) {
-                executeAiServe();
+            if (!aiWindingUp) {
+                aiServeTimer -= dt;
+                if (aiServeTimer <= 0f) {
+                    // Telegraph the serve: announce it and toss the ball
+                    aiWindingUp = true;
+                    aiWindupTimer = AI_WINDUP_DURATION;
+                    messages.add("CPU serving...");
+                }
+            } else {
+                aiWindupTimer -= dt;
+                // Ball-toss animation: rises and falls over the windup
+                float progress = 1f - Math.max(0f, aiWindupTimer) / AI_WINDUP_DURATION;
+                ball.z = 1.5f + 2.2f * (float) Math.sin(Math.PI * progress);
+                if (aiWindupTimer <= 0f) {
+                    aiWindingUp = false;
+                    executeAiServe();
+                }
             }
         }
     }

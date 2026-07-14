@@ -32,7 +32,7 @@ Jordan launches the app. The main menu shows Play, Circuit, Tournament, and Sett
 Mia opens Character Select and taps the padlocked green character. An unlock screen appears: character portrait, name/lore line, and the message "This character is a Patreon exclusive. Connect your Patreon account to unlock." with a Connect Patreon button. The button is a non-functional placeholder in this chunk; Mia backs out to Character Select. No OAuth occurs.
 
 ### Scenario 3: Serving under pressure (mirrors SPEC.md Serve Mechanic)
-At the start of a point, the serve indicator highlights the server and a 10-second aim window opens. The player drags to aim within the valid service box, taps Serve to start the power meter, taps again to lock power, then taps a third time as the accuracy needle swings to center it. A mistimed accuracy tap pushes the landing spot off-target; two consecutive faults award the point to the receiver; letting the 10-second window expire counts as a fault.
+At the start of a point, the serve indicator highlights the server and a 15-second aim window opens. The player drags to aim within the valid service box, taps Serve to start the power meter, taps again to lock power, then taps a third time as the accuracy needle swings to center it. A mistimed accuracy tap pushes the landing spot off-target; two consecutive faults award the point to the receiver. Letting the window expire auto-confirms the current aim and starts the power meter — expiry is not a fault (playtest amendment 2026-07-14; originally a 10-second window whose expiry faulted).
 
 ### Scenario 4: Gesture shots in a rally (mirrors SPEC.md Shot Mechanic)
 During a rally the player moves with the left joystick and returns the ball with a right-joystick flick: a slow flick lobs deep, a hard flick smashes flat and fast, and a lateral jerk at the apex of the flick adds slice or topspin. If the player is outside the range radius when the ball arrives, the shot misses — there is no auto-teleport to the ball. Shot power scales with proximity to the ball at contact.
@@ -58,8 +58,8 @@ A developer runs the desktop build, plays through the full flow on a 1280×720 l
 
 ### Serve Mechanic (SPEC.md Serve Mechanic — verbatim)
 - **FR-020**: Server chosen by coin toss at match start; service alternates each game thereafter.
-- **FR-021**: Per point: 10-second aim window with a visible aimed-landing-spot indicator constrained to the valid service box; tap starts the power meter (fills upward, tap locks); accuracy meter (swinging needle) immediately follows, deviation from center shifting the landing position laterally.
-- **FR-022**: Higher locked power produces a faster serve with a larger fault margin. A serve landing outside the service box is a fault; two consecutive faults on one point is a double fault awarding the point to the receiver; aim-window expiry counts as a fault.
+- **FR-021**: Per point: 15-second aim window with a visible aimed-landing-spot indicator constrained to the valid service box; tap starts the power meter (fills upward, tap locks); accuracy meter (swinging needle) immediately follows, deviation from center shifting the landing position laterally. (Playtest amendment 2026-07-14: window was 10s.)
+- **FR-022**: Higher locked power produces a faster serve with a larger fault margin. A serve landing outside the service box is a fault; two consecutive faults on one point is a double fault awarding the point to the receiver. Aim-window expiry auto-confirms the current aim instead of faulting (playtest amendment 2026-07-14).
 - **FR-023**: AI serves skip the meter UI entirely; AI serve speed and placement derive from its difficulty tier (Easy: center/slow → Hard: corners/fast).
 
 ### Shot Mechanic (SPEC.md Shot Mechanic — verbatim)
