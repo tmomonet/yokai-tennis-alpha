@@ -8,6 +8,8 @@ import com.cafeyokai.tennis.engine.gesture.GestureClassifier;
 import com.cafeyokai.tennis.engine.gesture.GestureTuning;
 import com.cafeyokai.tennis.engine.gesture.ShotGesture;
 import com.cafeyokai.tennis.engine.gesture.GestureTrace;
+import com.cafeyokai.tennis.engine.gesture.ShotType;
+import com.cafeyokai.tennis.engine.physics.BallSimulator;
 import com.cafeyokai.tennis.engine.physics.BallState;
 import com.cafeyokai.tennis.engine.physics.CourtGeometry;
 import com.cafeyokai.tennis.engine.score.TennisScore;
@@ -59,7 +61,7 @@ public final class MatchScreen extends BaseScreen {
     /** Vanishing row for the ground plane (off-screen above the viewport). */
     private static final float HORIZON_Y = NEAR_ROW + K_Y / Z_NEAR;
 
-    /** Grass apron drawn around the court lines (meters). */
+    /** Cafe floor apron drawn around the court lines (meters). */
     private static final float APRON_M = 2.2f;
     /** Court strip height in engine meters (drawing resolution). */
     private static final float STRIP_M = 0.15f;
@@ -101,6 +103,27 @@ public final class MatchScreen extends BaseScreen {
     private final float[] trailY = new float[TRAIL_LEN];
     private final float[] trailSize = new float[TRAIL_LEN];
     private int trailCount = 0;
+
+    // Landing-spot indicator (Madden catch-spot style): predicted first bounce
+    // of the ball in flight, recomputed each frame on a throwaway copy.
+    private static final int PREDICT_MAX_STEPS = 720; // 6 s at 120 Hz
+    private final BallSimulator predictSim = new BallSimulator();
+    private boolean landingValid;
+    private float landingX;
+    private float landingY;
+    private boolean landingIncoming;
+
+    // Screen-effect clock (indicator pulse)
+    private float stateTime;
+
+    /** Fixed gesture power per keyed shot (desktop arrow keys). */
+    private static float shotKeyPower(ShotType type) {
+        return switch (type) {
+            case SMASH -> 1.0f;
+            case LOB   -> 0.7f;
+            default    -> 0.85f;
+        };
+    }
 
     // -----------------------------------------------------------------------
     // Constructor
@@ -146,6 +169,8 @@ public final class MatchScreen extends BaseScreen {
 
     @Override
     protected void update(float delta) {
+        stateTime += delta;
+
         // 1. Update input polling
         input.update(delta, viewport);
 
@@ -161,8 +186,16 @@ public final class MatchScreen extends BaseScreen {
             shot.ifPresent(match::submitGesture);
         }
 
+        // 3b. Feed keyed shot (desktop arrows): fixed power, steered by held A/D
+        input.pollShotKey().ifPresent(type ->
+                match.submitGesture(new ShotGesture(
+                        type, input.moveX(), 1f, shotKeyPower(type))));
+
         // 4. Update match simulation
         match.update(delta, input.moveX(), input.moveY());
+
+        // 4b. Predict the ball's first bounce for the landing indicator
+        updateLandingPrediction();
 
         // 5. Drain messages
         String msg = match.pollMessage();
@@ -200,11 +233,42 @@ public final class MatchScreen extends BaseScreen {
         }
     }
 
+    /**
+     * Runs the deterministic ball sim forward on a copy until the first bounce
+     * and records the spot. Only meaningful while the ball is in flight and has
+     * not bounced yet (once it bounces, the real mark is where it landed).
+     */
+    private void updateLandingPrediction() {
+        landingValid = false;
+        MatchController.Phase phase = match.getPhase();
+        if (phase != MatchController.Phase.SERVE_FLIGHT
+                && phase != MatchController.Phase.RALLY) {
+            return;
+        }
+        BallState ball = match.getBall();
+        if (ball.bounces > 0) {
+            return;
+        }
+        BallState sim = ball.copy();
+        for (int i = 0; i < PREDICT_MAX_STEPS; i++) {
+            if (predictSim.stepOnce(sim)) {
+                landingValid = true;
+                landingX = sim.lastBounceX;
+                landingY = sim.lastBounceY;
+                landingIncoming = ball.lastHitBy != MatchController.HUMAN;
+                return;
+            }
+        }
+    }
+
     @Override
     protected void draw(float delta) {
         BallState ball = match.getBall();
 
         drawCourt();
+        if (landingValid) {
+            drawLandingMarker();
+        }
 
         // Far side of the net (drawn first so the net occludes it)
         drawPlayer(false);
@@ -248,14 +312,16 @@ public final class MatchScreen extends BaseScreen {
             float t = (y + extent) / (2f * extent); // 0 near → 1 far
             float shade = 1f - 0.22f * t;
 
+            // Cafe Yokai interior: dark espresso wood floor around a
+            // latte-toned play area (was grass green pre-coffee-shop theme)
             float apronHalf = (CourtGeometry.HALF_WIDTH + APRON_M) * scale;
             drawRect(CENTER_X - apronHalf, rowBottom, apronHalf * 2f, h,
-                    0.05f * shade, 0.17f * shade, 0.09f * shade, 1f);
+                    0.26f * shade, 0.16f * shade, 0.10f * shade, 1f);
 
             if (Math.abs(y) <= CourtGeometry.HALF_LENGTH) {
                 float courtHalf = CourtGeometry.HALF_WIDTH * scale;
                 drawRect(CENTER_X - courtHalf, rowBottom, courtHalf * 2f, h,
-                        0.09f * shade, 0.30f * shade, 0.15f * shade, 1f);
+                        0.58f * shade, 0.42f * shade, 0.26f * shade, 1f);
             }
         }
 
@@ -294,18 +360,44 @@ public final class MatchScreen extends BaseScreen {
         float half = CourtGeometry.HALF_WIDTH * scale;
         float netH = NET_M * scale;
 
-        // Posts just outside the sidelines
-        drawRect(CENTER_X - half - 5f, row, 6f, netH + 6f, 0.85f, 0.85f, 0.9f, 1f);
-        drawRect(CENTER_X + half - 1f, row, 6f, netH + 6f, 0.85f, 0.85f, 0.9f, 1f);
+        // Wooden posts just outside the sidelines (cafe counter styling)
+        drawRect(CENTER_X - half - 5f, row, 6f, netH + 6f, 0.48f, 0.32f, 0.19f, 1f);
+        drawRect(CENTER_X + half - 1f, row, 6f, netH + 6f, 0.48f, 0.32f, 0.19f, 1f);
 
-        // Net band with white tape on top
-        drawRect(CENTER_X - half, row, half * 2f, netH, 0.13f, 0.17f, 0.30f, 0.95f);
-        drawRect(CENTER_X - half, row + netH - 4f, half * 2f, 4f, 1f, 1f, 1f, 1f);
+        // Espresso-dark net band with cream tape on top
+        drawRect(CENTER_X - half, row, half * 2f, netH, 0.24f, 0.14f, 0.08f, 0.95f);
+        drawRect(CENTER_X - half, row + netH - 4f, half * 2f, 4f, 1f, 0.96f, 0.88f, 1f);
     }
 
     // -----------------------------------------------------------------------
     // Ball drawing
     // -----------------------------------------------------------------------
+
+    /**
+     * Pulsing ground marker at the predicted first bounce ("catch spot").
+     * Bright orange when the ball is incoming (get there!), faint white for
+     * the player's own shot (aim feedback).
+     */
+    private void drawLandingMarker() {
+        float scale = ppm(landingY);
+        float pulse = 1f + 0.15f * (float) Math.sin(stateTime * 6f);
+        float w = 0.8f * scale * pulse;
+        float sx = screenX(landingX, landingY);
+        float sy = groundRow(landingY);
+        TextureRegion ballTex = game.sprites.byKey("ball");
+
+        if (landingIncoming) {
+            // Saturated red-orange so it pops against the latte-toned floor
+            batch.setColor(1f, 0.32f, 0.12f, 0.7f);
+        } else {
+            batch.setColor(1f, 1f, 1f, 0.3f);
+        }
+        // Ground ellipse (perspective-squashed) + a solid center dot
+        batch.draw(ballTex, sx - w / 2f, sy - w * 0.2f, w, w * 0.4f);
+        float dot = w * 0.25f;
+        batch.draw(ballTex, sx - dot / 2f, sy - dot * 0.2f, dot, dot * 0.4f);
+        batch.setColor(Color.WHITE);
+    }
 
     private void drawBallShadow(BallState ball) {
         float scale = ppm(ball.y);
@@ -430,6 +522,13 @@ public final class MatchScreen extends BaseScreen {
             drawServeMeters();
         }
 
+        // Desktop shot-key reference during rallies
+        if (phase == MatchController.Phase.RALLY && !input.isTouchMode()) {
+            drawTextCentered(font,
+                    "WASD move  |  UP smash   DOWN lob   LEFT slice   RIGHT topspin",
+                    CENTER_X, 25f, Color.LIGHT_GRAY);
+        }
+
         // Match-over banner
         if (phase == MatchController.Phase.MATCH_OVER) {
             String banner = match.humanWon() ? "YOU WIN!" : "GAME, SET, MATCH";
@@ -449,21 +548,25 @@ public final class MatchScreen extends BaseScreen {
         ServeState.Phase sp = ss.phase();
 
         // Phase instruction — playtest feedback: the meter flow needs guidance
+        boolean touch = input.isTouchMode();
         String hint = switch (sp) {
-            case AIMING   -> "Move to aim the serve, then tap / click";
-            case POWER    -> "Tap / click to lock power";
-            case ACCURACY -> "Tap / click when the needle is centered!";
+            case AIMING   -> touch ? "Move to aim the serve, then tap"
+                                   : "WASD to aim the serve, then press any key";
+            case POWER    -> touch ? "Tap to lock power"
+                                   : "Press any key to lock power";
+            case ACCURACY -> touch ? "Tap when the needle is centered!"
+                                   : "Press any key when the needle is centered!";
             default       -> null;
         };
         if (hint != null) {
             drawTextCentered(font, hint, CENTER_X, 250f, Color.ORANGE);
         }
 
-        // Serve button (tap anywhere works; this is the visible affordance)
+        // Serve button (tap anywhere / any key works; this is the visible affordance)
         String btnLabel = switch (sp) {
-            case AIMING   -> "TAP TO TOSS";
-            case POWER    -> "TAP: LOCK POWER";
-            case ACCURACY -> "TAP: HIT!";
+            case AIMING   -> touch ? "TAP TO TOSS"      : "ANY KEY: TOSS";
+            case POWER    -> touch ? "TAP: LOCK POWER"  : "ANY KEY: LOCK POWER";
+            case ACCURACY -> touch ? "TAP: HIT!"        : "ANY KEY: HIT!";
             default       -> null;
         };
         if (btnLabel != null) {

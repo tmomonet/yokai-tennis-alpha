@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.cafeyokai.tennis.engine.gesture.GestureTrace;
+import com.cafeyokai.tennis.engine.gesture.ShotType;
 import com.cafeyokai.tennis.gfx.SpriteProvider;
 
 import java.util.ArrayList;
@@ -16,10 +17,11 @@ import java.util.Optional;
 /**
  * Platform-aware input aggregator for the match screen (T020).
  *
- * Polled every frame — no InputProcessor. Desktop: WASD/arrows for movement,
- * left-click drag for gesture samples, click release = meter tap.
- * Android: left VirtualJoystick for movement, right VirtualJoystick drag for
- * gesture samples, uncaptured touch = meter tap.
+ * Polled every frame — no InputProcessor. Desktop: WASD for movement, arrow
+ * keys fire shots directly (UP smash, DOWN lob, LEFT slice, RIGHT topspin),
+ * any non-movement key or click release = meter tap; left-click drag gestures
+ * remain as a fallback. Android: left VirtualJoystick for movement, right
+ * VirtualJoystick drag for gesture samples, uncaptured touch = meter tap.
  */
 public final class MatchInput {
 
@@ -49,6 +51,7 @@ public final class MatchInput {
     // Events fired this frame
     private boolean tapFired;
     private boolean meterTapFired;
+    private ShotType shotKeyFired;
 
     // Desktop movement
     private float desktopMoveX;
@@ -72,6 +75,7 @@ public final class MatchInput {
         matchTime += delta;
         tapFired = false;
         meterTapFired = false;
+        shotKeyFired = null;
         if (touchMode) {
             updateTouch(viewport);
         } else {
@@ -84,12 +88,12 @@ public final class MatchInput {
     // -------------------------------------------------------------------------
 
     private void updateDesktop(Viewport viewport) {
-        // --- Movement: WASD + arrow keys ---
+        // --- Movement: WASD only (arrows are shot keys) ---
         float mx = 0f, my = 0f;
-        if (Gdx.input.isKeyPressed(Input.Keys.A) || Gdx.input.isKeyPressed(Input.Keys.LEFT))  mx -= 1f;
-        if (Gdx.input.isKeyPressed(Input.Keys.D) || Gdx.input.isKeyPressed(Input.Keys.RIGHT)) mx += 1f;
-        if (Gdx.input.isKeyPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.UP))    my += 1f;
-        if (Gdx.input.isKeyPressed(Input.Keys.S) || Gdx.input.isKeyPressed(Input.Keys.DOWN))  my -= 1f;
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) mx -= 1f;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) mx += 1f;
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) my += 1f;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) my -= 1f;
         // Normalize diagonal
         if (mx != 0f && my != 0f) {
             float inv = 1f / (float) Math.sqrt(2.0);
@@ -98,6 +102,21 @@ public final class MatchInput {
         }
         desktopMoveX = mx;
         desktopMoveY = my;
+
+        // --- Shot keys: arrows map directly to the four shot types ---
+        if      (Gdx.input.isKeyJustPressed(Input.Keys.UP))    shotKeyFired = ShotType.SMASH;
+        else if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN))  shotKeyFired = ShotType.LOB;
+        else if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT))  shotKeyFired = ShotType.SLICE;
+        else if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT)) shotKeyFired = ShotType.TOPSPIN;
+
+        // --- Meter tap: any key except movement keys ---
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ANY_KEY)
+                && !Gdx.input.isKeyJustPressed(Input.Keys.W)
+                && !Gdx.input.isKeyJustPressed(Input.Keys.A)
+                && !Gdx.input.isKeyJustPressed(Input.Keys.S)
+                && !Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+            meterTapFired = true;
+        }
 
         // --- Gesture / meter from left mouse button ---
         boolean mousePressed = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
@@ -216,6 +235,21 @@ public final class MatchInput {
             return r > 0f ? leftStick.getKnobY() / r : 0f;
         }
         return desktopMoveY;
+    }
+
+    /**
+     * Returns and clears the shot type fired by an arrow key this frame
+     * (desktop only). Returns Optional.empty() otherwise.
+     */
+    public Optional<ShotType> pollShotKey() {
+        ShotType t = shotKeyFired;
+        shotKeyFired = null;
+        return Optional.ofNullable(t);
+    }
+
+    /** True when running with touch controls (Android). */
+    public boolean isTouchMode() {
+        return touchMode;
     }
 
     /**

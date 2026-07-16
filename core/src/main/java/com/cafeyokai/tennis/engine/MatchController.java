@@ -44,7 +44,7 @@ public final class MatchController {
     // -----------------------------------------------------------------------
 
     /** Human is always player 0 (y < 0 side). */
-    private static final int HUMAN  = 0;
+    public static final int HUMAN  = 0;
     /** AI is always player 1 (y > 0 side). */
     private static final int AI     = 1;
 

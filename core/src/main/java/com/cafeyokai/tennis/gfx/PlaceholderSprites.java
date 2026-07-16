@@ -59,54 +59,73 @@ public final class PlaceholderSprites implements SpriteProvider {
     // The grid is top-down (row 0 = top of the sprite).
     // Palette: {r, g, b, a} each 0-255.
 
-    // --- Tess (red hair, red outfit, skin face) ---
+    // --- Tess (Cafe Yokai ref: blue oni — black bob, two navy horns, sharp
+    // grin, choker, pale tee under the black barista apron, black pants) ---
     private static final String[] TESS_GRID = {
-        "....RRRRRR....",
-        "...RRRRRRRR...",
-        "...RRffffRR...",
-        "...RfffffRR...",
-        "...RfffffRR...",
-        "....RRRRRR....",
-        "..OOOOOOOOOO..",
-        ".OOOOOOOOOOOO.",
-        ".OOOOOOOOOOOO.",
-        ".OOOOOOOOOOOO.",
-        "..OOOOOOOOOO..",
-        "...OOOO.OOOO..",
-        "..OOOOO.OOOOO.",
-        ".OOOOOO.OOOOOO",
-        "OOOOOOO.OOOOOOO",
-        "OOOOOO...OOOOO",
+        "...N......N...",
+        "..NN.KKKK.NN..",
+        "..KKKKKKKKKK..",
+        ".KKKKKKKKKKKK.",
+        ".KKCCCCCCCCKK.",
+        ".KKCBBCCBBCKK.",
+        ".KKCCCCCCCCKK.",
+        ".KKCttttttCKK.",
+        "..KKCCCCCCKK..",
+        ".....BBBB.....",
+        "..CCTTTTTTCC..",
+        "..CCTBBBBTCC..",
+        "..CCTBBBBTCC..",
+        "...C.BBBB.C...",
+        ".....BDDB.....",
+        ".....BBBB.....",
+        "....BBBBBB....",
+        "....BB..BB....",
+        "....BB..BB....",
+        "....KK..KK....",
     };
     private static final java.util.Map<Character, int[]> TESS_PALETTE = buildPalette(
-        'R', new int[]{210, 40,  40,  255},
-        'f', new int[]{240, 195, 150, 255},
-        'O', new int[]{200, 50,  50,  255}
+        'N', new int[]{35,  55,  110, 255},   // horns (navy)
+        'K', new int[]{30,  28,  35,  255},   // black bob / shoes
+        'C', new int[]{95,  175, 225, 255},   // blue oni skin
+        'B', new int[]{45,  40,  50,  255},   // apron / pants / choker / eyes
+        't', new int[]{255, 255, 255, 255},   // sharp-tooth grin
+        'T', new int[]{245, 225, 225, 255},   // pale tee
+        'D', new int[]{230, 70,  80,  255}    // red apron-pocket trim
     );
 
-    // --- Demi (blue hair, blue outfit) ---
+    // --- Demi (Cafe Yokai ref: red oni — long white hair, single center
+    // horn, yellow eyes, pink sweater under the apron, frilly hem) ---
     private static final String[] DEMI_GRID = {
-        "....BBBBBB....",
-        "...BBBBBBBB...",
-        "...BBffffBB...",
-        "...BfffffBB...",
-        "...BfffffBB...",
-        "....BBBBBB....",
-        "..UUUUUUUUUU..",
-        ".UUUUUUUUUUUU.",
-        ".UUUUUUUUUUUU.",
-        ".UUUUUUUUUUUU.",
-        "..UUUUUUUUUU..",
-        "...UUUU.UUUU..",
-        "..UUUUU.UUUUU.",
-        ".UUUUUU.UUUUUU",
-        "UUUUUUU.UUUUUU",
-        "UUUUUU...UUUUU",
+        "......rr......",
+        ".WWW..rr..WW..",
+        ".WWWWWrrWWWWW.",
+        ".WWRRRRRRRRWW.",
+        ".WWRBBRRBBRWW.",
+        ".WWRYYRRYYRWW.",
+        ".WWRRRRRRRRWW.",
+        ".WWRRRrrRRRWW.",
+        ".WWWRRRRRRWWW.",
+        ".WW..RRRR..WW.",
+        ".WWPPPPPPPPWW.",
+        ".WWPPBBBBPPWW.",
+        ".WWPPBBBBPPWW.",
+        "..WPPBBBBPPW..",
+        "...PPBDDBPP...",
+        "...PPBBBBPP...",
+        "...pppppppp...",
+        "....RR..RR....",
+        "....RR..RR....",
+        "....rr..rr....",
     };
     private static final java.util.Map<Character, int[]> DEMI_PALETTE = buildPalette(
-        'B', new int[]{50,  80,  220, 255},
-        'f', new int[]{240, 195, 150, 255},
-        'U', new int[]{60,  100, 210, 255}
+        'W', new int[]{245, 240, 235, 255},   // platinum hair
+        'r', new int[]{150, 20,  35,  255},   // horn / mouth / shading
+        'R', new int[]{225, 45,  65,  255},   // red oni skin
+        'B', new int[]{35,  30,  40,  255},   // brows / apron
+        'Y', new int[]{255, 205, 70,  255},   // yellow eyes
+        'P', new int[]{245, 150, 180, 255},   // pink sweater
+        'p', new int[]{250, 215, 225, 255},   // frilly hem
+        'D', new int[]{230, 70,  80,  255}    // red apron-pocket trim
     );
 
     // --- Patreon test (dark silhouette with green outline and "?" face) ---
@@ -135,34 +154,38 @@ public final class PlaceholderSprites implements SpriteProvider {
         'V', new int[]{50,  160, 60,  255}
     );
 
-    // --- Court (chibi) sprites: smaller 12x16 grids for in-match rendering ---
+    // --- Court (chibi) sprites: smaller grids for in-match rendering ---
     private static final String[] TESS_COURT_GRID = {
-        "..RRRR..",
-        ".RRRRRR.",
-        ".RffRRR.",
-        ".RfffffR.",
-        "..RRRR..",
-        ".OOOOOO.",
-        "OOOOOOOO",
-        "OOOOOOOO",
-        ".OOOOOO.",
-        "..OO.OO.",
-        "..OO.OO.",
-        ".OOO.OOO",
+        ".N......N.",
+        ".KKKKKKKK.",
+        "KKKKKKKKKK",
+        "KKCCCCCCKK",
+        "KKCBCCBCKK",
+        ".KCCCCCCK.",
+        "..CTTTTC..",
+        "..CBBBBC..",
+        "..CBBBBC..",
+        "...BDDB...",
+        "...BBBB...",
+        "..BB..BB..",
+        "..BB..BB..",
+        "..KK..KK..",
     };
     private static final String[] DEMI_COURT_GRID = {
-        "..BBBB..",
-        ".BBBBBB.",
-        ".BBffBB.",
-        ".BfffffB.",
-        "..BBBB..",
-        ".UUUUUU.",
-        "UUUUUUUU",
-        "UUUUUUUU",
-        ".UUUUUU.",
-        "..UU.UU.",
-        "..UU.UU.",
-        ".UUU.UUU",
+        "....rr....",
+        ".WWWrrWWW.",
+        "WWRRRRRRWW",
+        "WWRYRRYRWW",
+        "WWRRRRRRWW",
+        ".WWRRRRWW.",
+        ".WPPPPPPW.",
+        ".WPBBBBPW.",
+        ".WPBBBBPW.",
+        "..PBDDBP..",
+        "..pppppp..",
+        "..RR..RR..",
+        "..RR..RR..",
+        "..rr..rr..",
     };
     private static final String[] PATREON_COURT_GRID = {
         "..GGGG..",
@@ -250,14 +273,14 @@ public final class PlaceholderSprites implements SpriteProvider {
         return upload(p);
     }
 
-    /** Top-down court card: green surface, white lines, net band across the middle. */
+    /** Top-down court card: coffee-shop floor, cream lines, counter band across the middle. */
     private static Texture courtThumbnail() {
         int w = 320;
         int h = 180;
         Pixmap p = new Pixmap(w, h, Pixmap.Format.RGBA8888);
-        p.setColor(0.10f, 0.35f, 0.22f, 1f);
+        p.setColor(0.26f, 0.16f, 0.10f, 1f);   // espresso wood floor
         p.fill();
-        p.setColor(0.16f, 0.48f, 0.30f, 1f);
+        p.setColor(0.58f, 0.42f, 0.26f, 1f);   // latte play area
         p.fillRectangle(30, 20, w - 60, h - 40);
         p.setColor(Color.WHITE);
         p.drawRectangle(30, 20, w - 60, h - 40);

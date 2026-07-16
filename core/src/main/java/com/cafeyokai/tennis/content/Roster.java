@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * Fixed launch roster of 3 (SPEC.md Character Roster / Resolved Decision 8):
- * Tess (red, FREE), Demi (blue, FREE), and the unnamed Patreon test
+ * Tess (blue oni, FREE), Demi (red oni, FREE), and the unnamed Patreon test
  * character (green, PATREON — name/lore TBD per spec).
  */
 public final class Roster {
