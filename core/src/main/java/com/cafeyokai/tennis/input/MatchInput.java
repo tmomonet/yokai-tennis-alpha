@@ -18,10 +18,11 @@ import java.util.Optional;
  * Platform-aware input aggregator for the match screen (T020).
  *
  * Polled every frame — no InputProcessor. Desktop: WASD for movement, arrow
- * keys fire shots directly (UP smash, DOWN lob, LEFT slice, RIGHT topspin),
- * any non-movement key or click release = meter tap; left-click drag gestures
- * remain as a fallback. Android: left VirtualJoystick for movement, right
- * VirtualJoystick drag for gesture samples, uncaptured touch = meter tap.
+ * keys are hold-to-charge shot buttons (UP smash, DOWN lob, LEFT slice,
+ * RIGHT topspin — hold to charge, release to swing), any non-movement key or
+ * click release = meter tap; left-click drag gestures remain as a fallback.
+ * Android: left VirtualJoystick for movement, right VirtualJoystick drag for
+ * gesture samples, uncaptured touch = meter tap.
  */
 public final class MatchInput {
 
@@ -52,6 +53,12 @@ public final class MatchInput {
     private boolean tapFired;
     private boolean meterTapFired;
     private ShotType shotKeyFired;
+    private float shotChargeFired;
+
+    // Hold-to-charge state (desktop): arrow held = charging, release = swing
+    private static final float CHARGE_FULL_SECONDS = 0.8f;
+    private ShotType chargingType;
+    private float chargeTime;
 
     // Desktop movement
     private float desktopMoveX;
@@ -79,7 +86,7 @@ public final class MatchInput {
         if (touchMode) {
             updateTouch(viewport);
         } else {
-            updateDesktop(viewport);
+            updateDesktop(delta, viewport);
         }
     }
 
@@ -87,7 +94,16 @@ public final class MatchInput {
     // Desktop input
     // -------------------------------------------------------------------------
 
-    private void updateDesktop(Viewport viewport) {
+    private static int keyFor(ShotType type) {
+        return switch (type) {
+            case SMASH   -> Input.Keys.UP;
+            case LOB     -> Input.Keys.DOWN;
+            case SLICE   -> Input.Keys.LEFT;
+            case TOPSPIN -> Input.Keys.RIGHT;
+        };
+    }
+
+    private void updateDesktop(float delta, Viewport viewport) {
         // --- Movement: WASD only (arrows are shot keys) ---
         float mx = 0f, my = 0f;
         if (Gdx.input.isKeyPressed(Input.Keys.A)) mx -= 1f;
@@ -103,11 +119,24 @@ public final class MatchInput {
         desktopMoveX = mx;
         desktopMoveY = my;
 
-        // --- Shot keys: arrows map directly to the four shot types ---
-        if      (Gdx.input.isKeyJustPressed(Input.Keys.UP))    shotKeyFired = ShotType.SMASH;
-        else if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN))  shotKeyFired = ShotType.LOB;
-        else if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT))  shotKeyFired = ShotType.SLICE;
-        else if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT)) shotKeyFired = ShotType.TOPSPIN;
+        // --- Shot keys: hold an arrow to charge, release to swing ---
+        if (chargingType == null) {
+            if      (Gdx.input.isKeyJustPressed(Input.Keys.UP))    chargingType = ShotType.SMASH;
+            else if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN))  chargingType = ShotType.LOB;
+            else if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT))  chargingType = ShotType.SLICE;
+            else if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT)) chargingType = ShotType.TOPSPIN;
+            if (chargingType != null) {
+                chargeTime = 0f;
+            }
+        } else {
+            chargeTime += delta;
+            if (!Gdx.input.isKeyPressed(keyFor(chargingType))) {
+                // Release = swing with the accumulated charge
+                shotKeyFired = chargingType;
+                shotChargeFired = Math.min(1f, chargeTime / CHARGE_FULL_SECONDS);
+                chargingType = null;
+            }
+        }
 
         // --- Meter tap: any key except movement keys ---
         if (Gdx.input.isKeyJustPressed(Input.Keys.ANY_KEY)
@@ -238,13 +267,29 @@ public final class MatchInput {
     }
 
     /**
-     * Returns and clears the shot type fired by an arrow key this frame
-     * (desktop only). Returns Optional.empty() otherwise.
+     * Returns and clears the shot type released this frame (desktop only).
+     * Returns Optional.empty() otherwise. {@link #shotCharge()} holds the
+     * charge level of the returned shot.
      */
     public Optional<ShotType> pollShotKey() {
         ShotType t = shotKeyFired;
         shotKeyFired = null;
         return Optional.ofNullable(t);
+    }
+
+    /** Charge level [0,1] of the shot last returned by {@link #pollShotKey()}. */
+    public float shotCharge() {
+        return shotChargeFired;
+    }
+
+    /** Shot type currently being charged (arrow held), or null. */
+    public ShotType chargingShot() {
+        return chargingType;
+    }
+
+    /** Charge level [0,1] of the in-progress hold; 0 when not charging. */
+    public float chargeLevel() {
+        return chargingType == null ? 0f : Math.min(1f, chargeTime / CHARGE_FULL_SECONDS);
     }
 
     /** True when running with touch controls (Android). */

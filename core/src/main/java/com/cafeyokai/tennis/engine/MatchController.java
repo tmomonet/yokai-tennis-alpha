@@ -61,7 +61,7 @@ public final class MatchController {
     /** Player movement speed (meters/second). */
     private static final float PLAYER_SPEED  = 8f;
     /** AI movement speed (meters/second). */
-    private static final float AI_SPEED      = 7f;
+    private static final float AI_SPEED      = 7.5f;
     /** Shot launch speed for human rally shots (meters/second). */
     private static final float RALLY_SPEED_BASE = 20f;
 
@@ -110,6 +110,11 @@ public final class MatchController {
     // AI reaction delay after ball crosses net
     private float aiReactionTimer = 0f;
     private boolean aiReactionStarted = false;
+
+    // AI's misread of the incoming ball's landing X (T026 round 8): applied
+    // until the ball crosses the net, then the read snaps to the true spot.
+    private float aiGuessOffset = 0f;
+    private boolean aiGuessValid = false;
 
     // Messages for MatchScreen to display
     private final Deque<String> messages = new ArrayDeque<>();
@@ -361,25 +366,22 @@ public final class MatchController {
                 return;
             }
 
-            // First bounce in-court on AI side: check if AI can auto-return
-            if (ball.lastBounceY > 0f && ball.bounces == 1) {
-                // AI will attempt return after reaction delay
-                if (!aiReactionStarted) {
-                    aiReactionStarted = true;
-                }
-            }
-
             // First bounce in-court on human side — human must hit
         }
 
-        // AI auto-return logic
-        if (ball.y > 0f && ball.lastHitBy != AI && ball.bounces <= 1) {
-            if (aiReactionStarted) {
-                aiReactionTimer -= dt;
-            }
-            if (aiReactionTimer <= 0f && aiReactionStarted && ShotContact.canReach(aiX, aiY, ball.x, ball.y)) {
-                executeAiReturn();
-            }
+        // Reaction clock: runs from the moment the ball is struck toward the
+        // AI (set in submitGesture / serve handling), gating both movement
+        // (updateAiMovement) and the swing below.
+        if (aiReactionStarted && aiReactionTimer > 0f) {
+            aiReactionTimer -= dt;
+        }
+
+        // AI return: plays the ball off the bounce (first bounce only, no
+        // air volleys) once reacted and within swing range.
+        if (ball.y > 0f && ball.lastHitBy != AI && ball.bounces == 1
+                && aiReactionStarted && aiReactionTimer <= 0f
+                && ShotContact.canReach(aiX, aiY, ball.x, ball.y)) {
+            executeAiReturn();
         }
     }
 
@@ -392,32 +394,71 @@ public final class MatchController {
     }
 
     private void updateAiMovement(float dt) {
-        if (ball.y > 0f) {
-            // Ball on AI side: move toward ball X
-            float targetX = ball.x;
-            float diff = targetX - aiX;
-            float step  = AI_SPEED * dt;
-            if (Math.abs(diff) <= step) {
-                aiX = targetX;
+        // The AI runs (in both axes) to meet an incoming ball once its
+        // reaction delay has elapsed; otherwise it drifts back to base.
+        // Pre-bounce it heads for the predicted landing spot, post-bounce it
+        // chases the ball itself.
+        boolean incoming = ball.lastHitBy != AI && ball.lastHitBy != -1
+                && (ball.y > 0f || ball.vy > 0f);
+        float targetX;
+        float targetY;
+        float step;
+        if (incoming && aiReactionStarted && aiReactionTimer <= 0f) {
+            if (ball.bounces == 0) {
+                float[] spot = predictBounce();
+                if (aiGuessValid && ball.y <= 0f) {
+                    // Ball still on the human side: the AI commits to its
+                    // (possibly wrong) first read; the true spot only once
+                    // the ball crosses the net.
+                    targetX = clamp(spot[0] + aiGuessOffset,
+                            -CourtGeometry.HALF_WIDTH, CourtGeometry.HALF_WIDTH);
+                    targetY = spot[1];
+                } else {
+                    targetX = spot[0];
+                    targetY = spot[1];
+                }
             } else {
-                aiX += Math.signum(diff) * step;
+                targetX = ball.x;
+                targetY = ball.y;
             }
+            step = AI_SPEED * dt;
         } else {
-            // Drift back to center
-            float step = AI_SPEED * 0.5f * dt;
-            if (Math.abs(aiX) <= step) {
-                aiX = 0f;
-            } else {
-                aiX -= Math.signum(aiX) * step;
+            targetX = 0f;
+            targetY = AI_BASE_Y;
+            step = AI_SPEED * 0.5f * dt;
+        }
+        targetX = clamp(targetX, -CourtGeometry.HALF_WIDTH, CourtGeometry.HALF_WIDTH);
+        targetY = clamp(targetY, 1.0f, CourtGeometry.HALF_LENGTH);
+
+        float dx = targetX - aiX;
+        float dy = targetY - aiY;
+        float dist = (float) Math.sqrt(dx * dx + dy * dy);
+        if (dist <= step) {
+            aiX = targetX;
+            aiY = targetY;
+        } else if (dist > 0f) {
+            aiX += dx / dist * step;
+            aiY += dy / dist * step;
+        }
+    }
+
+    /** Predicted (x, y) of the ball's first bounce; falls back to its position. */
+    private float[] predictBounce() {
+        BallState sim = ball.copy();
+        for (int i = 0; i < 720; i++) { // 6 s at 120 Hz
+            if (simulator.stepOnce(sim)) {
+                return new float[] {sim.lastBounceX, sim.lastBounceY};
             }
         }
-        aiX = clamp(aiX, -CourtGeometry.HALF_WIDTH, CourtGeometry.HALF_WIDTH);
+        return new float[] {ball.x, ball.y};
     }
 
     private void executeAiReturn() {
+        aiGuessValid = false;
         float[] target = ai.chooseShotTarget(playerX, HUMAN);
         SpinType spin  = randomAiSpin();
-        float speed    = RALLY_SPEED_BASE * (0.7f + 0.3f * random.nextFloat());
+        float speed    = RALLY_SPEED_BASE * ai.tier().rallyPace
+                * (0.85f + 0.3f * random.nextFloat());
         launchBallistic(AI, target[0], target[1], speed, spin);
         aiReactionTimer = ai.effectiveReactionDelay(spin);
         aiReactionStarted = false;
@@ -460,21 +501,33 @@ public final class MatchController {
 
         SpinType spin = shotTypeToSpin(gesture.type());
 
-        // Aim at AI's empty side (in the direction the gesture points, toward AI side)
-        float targetX = aiX + gesture.directionX() * CourtGeometry.HALF_WIDTH * 0.5f;
+        // Aim in court coordinates: directionX (-1..1, held A/D on desktop)
+        // picks a side of the court — full deflection lands near the sideline,
+        // neutral lands center — and the shot type picks the depth. Jitter
+        // keeps repeated shots from landing on the identical spot.
+        float targetX = gesture.directionX() * CourtGeometry.HALF_WIDTH * 0.75f
+                + (random.nextFloat() - 0.5f) * 0.6f;
         targetX = clamp(targetX, -(CourtGeometry.HALF_WIDTH - 0.3f), CourtGeometry.HALF_WIDTH - 0.3f);
-        float targetY;
-        if (gesture.type() == ShotType.LOB) {
-            targetY = AI_BASE_Y; // deep
-        } else {
-            targetY = CourtGeometry.HALF_LENGTH * 0.65f;
-        }
+
+        float depthFrac = switch (gesture.type()) {
+            case LOB     -> 0.88f;  // over the AI, near the baseline
+            case TOPSPIN -> 0.75f;  // deep drive
+            case SMASH   -> 0.62f;  // fast mid-court put-away
+            case SLICE   -> 0.50f;  // short skidding ball
+        };
+        float targetY = CourtGeometry.HALF_LENGTH * depthFrac
+                + (random.nextFloat() - 0.5f) * 0.8f;
+        targetY = clamp(targetY, 1.5f, CourtGeometry.HALF_LENGTH - 0.5f);
 
         launchBallistic(HUMAN, targetX, targetY, speed, spin);
 
-        // After human hits, start AI reaction timer
+        // After human hits, the AI's reaction clock starts immediately —
+        // but its first read of the landing spot carries tier-scaled error
+        // (wrong-footing window until the ball crosses the net).
         aiReactionTimer = ai.effectiveReactionDelay(spin);
-        aiReactionStarted = false;
+        aiReactionStarted = true;
+        aiGuessOffset = ai.anticipationOffset();
+        aiGuessValid = true;
     }
 
     private static SpinType shotTypeToSpin(ShotType type) {

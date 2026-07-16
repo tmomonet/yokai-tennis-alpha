@@ -66,14 +66,25 @@ public final class AiController {
     public float[] chooseShotTarget(float opponentX, int opponentSide) {
         float sign = CourtGeometry.sideSign(opponentSide);
         float emptySide = opponentX >= 0f ? -1f : 1f;
-        float x = emptySide * CourtGeometry.HALF_WIDTH * 0.6f
+        // Sharper corners + varied depth (T026 round 6): rallies should end on
+        // placement winners, not loop forever with both sides reaching everything.
+        float x = emptySide * CourtGeometry.HALF_WIDTH * 0.72f
                 + (float) random.nextGaussian() * tier.placementJitter * 0.5f;
-        float y = sign * CourtGeometry.HALF_LENGTH * 0.72f
+        float y = sign * CourtGeometry.HALF_LENGTH * (0.55f + 0.3f * random.nextFloat())
                 + (float) random.nextGaussian() * tier.placementJitter * 0.5f * sign;
 
         x = clamp(x, -(CourtGeometry.HALF_WIDTH - 0.3f), CourtGeometry.HALF_WIDTH - 0.3f);
         y = clamp(y * sign, 1.5f, CourtGeometry.HALF_LENGTH - 0.5f) * sign;
         return new float[] {x, y};
+    }
+
+    /**
+     * Lateral error (m, signed) applied to the AI's first read of where an
+     * incoming ball will land. The read is only corrected once the ball
+     * crosses the net — a committed wrong guess can be wrong-footed.
+     */
+    public float anticipationOffset() {
+        return (float) random.nextGaussian() * tier.anticipationError;
     }
 
     /**

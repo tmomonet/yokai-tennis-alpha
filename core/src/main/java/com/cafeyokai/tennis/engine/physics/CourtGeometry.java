@@ -18,8 +18,10 @@ public final class CourtGeometry {
     public static final float SERVICE_LINE = 6.40f;
     /** Net height at center. */
     public static final float NET_HEIGHT = 0.91f;
-    /** FR-033: max distance from the ball at which a swing connects. */
-    public static final float RANGE_RADIUS = 1.8f;
+    /** FR-033: max distance from the ball at which a swing connects.
+     *  Raised 1.8 → 2.2 in T026 round 5: hitting off the bounce felt
+     *  unreachable at 1.8 with the ball still moving. */
+    public static final float RANGE_RADIUS = 2.2f;
 
     private CourtGeometry() {
     }

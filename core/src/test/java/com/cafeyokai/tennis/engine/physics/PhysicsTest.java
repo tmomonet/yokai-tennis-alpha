@@ -119,12 +119,15 @@ class PhysicsTest {
     }
 
     @Test
-    @DisplayName("Shot power scales down with distance: full close in, reduced at the boundary")
+    @DisplayName("Shot power: sweet bonus close in, falls off with distance to the boundary")
     void distanceScaledPower() {
-        assertEquals(1f, ShotContact.powerScale(0f, 0f, 0f, 0f), 1e-5);
+        // Clean contact inside the sweet radius earns the bonus (T026 round 8)
+        assertEquals(ShotContact.SWEET_BONUS, ShotContact.powerScale(0f, 0f, 0f, 0f), 1e-5);
+        assertEquals(ShotContact.SWEET_BONUS,
+                ShotContact.powerScale(0f, 0f, ShotContact.SWEET_RADIUS, 0f), 1e-5);
         float mid = ShotContact.powerScale(0f, 0f, CourtGeometry.RANGE_RADIUS / 2f, 0f);
         float edge = ShotContact.powerScale(0f, 0f, CourtGeometry.RANGE_RADIUS, 0f);
-        assertTrue(mid < 1f && mid > edge, "power falls off monotonically");
+        assertTrue(mid < 1f && mid > edge, "power falls off monotonically past the sweet radius");
         assertEquals(ShotContact.MIN_POWER_SCALE, edge, 1e-5);
     }
 

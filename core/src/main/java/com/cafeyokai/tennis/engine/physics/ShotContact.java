@@ -9,6 +9,10 @@ public final class ShotContact {
 
     /** Power multiplier at the very edge of the range radius. */
     public static final float MIN_POWER_SCALE = 0.4f;
+    /** Contact within this distance is "clean" and earns the sweet bonus. */
+    public static final float SWEET_RADIUS = 0.8f;
+    /** Power multiplier for clean (sweet-spot) contact. */
+    public static final float SWEET_BONUS = 1.15f;
 
     private ShotContact() {
     }
@@ -24,15 +28,19 @@ public final class ShotContact {
     }
 
     /**
-     * Linear falloff from 1.0 at zero distance to {@link #MIN_POWER_SCALE} at
-     * the range boundary; 0 beyond it (the swing misses).
+     * Clean contact inside {@link #SWEET_RADIUS} earns {@link #SWEET_BONUS};
+     * beyond that, linear falloff to {@link #MIN_POWER_SCALE} at the range
+     * boundary; 0 past it (the swing misses).
      */
     public static float powerScale(float playerX, float playerY, float ballX, float ballY) {
         float d = distance(playerX, playerY, ballX, ballY);
         if (d > CourtGeometry.RANGE_RADIUS) {
             return 0f;
         }
-        float t = d / CourtGeometry.RANGE_RADIUS;
+        if (d <= SWEET_RADIUS) {
+            return SWEET_BONUS;
+        }
+        float t = (d - SWEET_RADIUS) / (CourtGeometry.RANGE_RADIUS - SWEET_RADIUS);
         return 1f - (1f - MIN_POWER_SCALE) * t;
     }
 }

@@ -5,6 +5,8 @@ import com.cafeyokai.tennis.engine.gesture.GestureTrace;
 import com.cafeyokai.tennis.engine.gesture.GestureClassifier;
 import com.cafeyokai.tennis.engine.gesture.GestureTuning;
 import com.cafeyokai.tennis.engine.gesture.ShotGesture;
+import com.cafeyokai.tennis.engine.gesture.ShotType;
+import com.cafeyokai.tennis.engine.physics.BallState;
 import com.cafeyokai.tennis.engine.serve.ServeState;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -268,6 +270,47 @@ class MatchControllerTest {
         // humanWon() must agree with the winner
         assertEquals(winner == 0, mc.humanWon(),
                 "humanWon() must match TennisScore.winner()");
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 6: AI returns a fast keyed shot (T026 round 5 regression)
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("AI returns a fast deep shot off the bounce (regression: CPU never returned the second rally ball)")
+    void aiReturnsFastKeyedShot() {
+        MatchController mc = advanceToFirstRally();
+        if (mc == null || mc.getPhase() != MatchController.Phase.RALLY) {
+            return; // can't reach rally deterministically; effectively skipped
+        }
+
+        // Stage a hittable rally ball at the human's feet, last hit by the AI
+        BallState ball = mc.getBall();
+        ball.x = mc.getPlayerX();
+        ball.y = mc.getPlayerY() + 0.5f;
+        ball.z = 0.5f;
+        ball.vx = 0f;
+        ball.vy = 0f;
+        ball.vz = 0f;
+        ball.lastHitBy = 1;
+        ball.bounces = 1;
+        ball.netHit = false;
+
+        // Full-power keyed smash (the round-4 desktop controls' fastest shot).
+        // Pre-fix, the AI's reaction clock only started at the bounce and it
+        // could not move in Y, so this ball always double-bounced past it.
+        mc.submitGesture(new ShotGesture(ShotType.SMASH, 0f, 1f, 1.0f));
+        assertEquals(0, mc.getBall().lastHitBy, "human smash must launch");
+
+        boolean aiReturned = false;
+        for (int i = 0; i < 400 && mc.getPhase() == MatchController.Phase.RALLY; i++) {
+            mc.update(0.016f, 0f, 0f);
+            if (mc.getBall().lastHitBy == 1) {
+                aiReturned = true;
+                break;
+            }
+        }
+        assertTrue(aiReturned, "AI must return a fast deep shot off the bounce");
     }
 
     // -----------------------------------------------------------------------

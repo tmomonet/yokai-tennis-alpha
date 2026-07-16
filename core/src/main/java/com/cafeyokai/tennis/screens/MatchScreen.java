@@ -11,6 +11,7 @@ import com.cafeyokai.tennis.engine.gesture.GestureTrace;
 import com.cafeyokai.tennis.engine.gesture.ShotType;
 import com.cafeyokai.tennis.engine.physics.BallSimulator;
 import com.cafeyokai.tennis.engine.physics.BallState;
+import com.cafeyokai.tennis.engine.physics.ShotContact;
 import com.cafeyokai.tennis.engine.physics.CourtGeometry;
 import com.cafeyokai.tennis.engine.score.TennisScore;
 import com.cafeyokai.tennis.engine.serve.ServeState;
@@ -116,13 +117,9 @@ public final class MatchScreen extends BaseScreen {
     // Screen-effect clock (indicator pulse)
     private float stateTime;
 
-    /** Fixed gesture power per keyed shot (desktop arrow keys). */
-    private static float shotKeyPower(ShotType type) {
-        return switch (type) {
-            case SMASH -> 1.0f;
-            case LOB   -> 0.7f;
-            default    -> 0.85f;
-        };
+    /** Power for a keyed shot: quick tap ~0.55, full 0.8 s charge = 1.0. */
+    private static float chargedPower(float charge) {
+        return 0.55f + 0.45f * charge;
     }
 
     // -----------------------------------------------------------------------
@@ -186,10 +183,11 @@ public final class MatchScreen extends BaseScreen {
             shot.ifPresent(match::submitGesture);
         }
 
-        // 3b. Feed keyed shot (desktop arrows): fixed power, steered by held A/D
+        // 3b. Feed keyed shot (desktop arrows): hold-to-charge power,
+        // steered by held A/D
         input.pollShotKey().ifPresent(type ->
                 match.submitGesture(new ShotGesture(
-                        type, input.moveX(), 1f, shotKeyPower(type))));
+                        type, input.moveX(), 1f, chargedPower(input.shotCharge()))));
 
         // 4. Update match simulation
         match.update(delta, input.moveX(), input.moveY());
@@ -281,6 +279,7 @@ public final class MatchScreen extends BaseScreen {
         drawNet();
 
         // Near side of the net
+        drawSwingRangeGlow();
         drawPlayer(true);
         if (ball.y <= 0f) {
             drawBallShadow(ball);
@@ -457,6 +456,50 @@ public final class MatchScreen extends BaseScreen {
     // Player drawing (bottom-anchored so feet stand on the court)
     // -----------------------------------------------------------------------
 
+    /**
+     * Glow under the human player while a swing would connect (FR-033 range):
+     * green in range, gold when contact would be clean (sweet-spot bonus).
+     * A charge bar rises over the player while an arrow key is held.
+     */
+    private void drawSwingRangeGlow() {
+        if (match.getPhase() != MatchController.Phase.RALLY) {
+            return;
+        }
+        float px = match.getPlayerX();
+        float py = match.getPlayerY();
+        float scale = ppm(py);
+        float sx = screenX(px, py);
+        float sy = groundRow(py);
+
+        BallState ball = match.getBall();
+        if (ball.lastHitBy != MatchController.HUMAN
+                && ShotContact.canReach(px, py, ball.x, ball.y)) {
+            boolean sweet = ShotContact.distance(px, py, ball.x, ball.y)
+                    <= ShotContact.SWEET_RADIUS;
+            float w = 1.3f * scale;
+            TextureRegion ballTex = game.sprites.byKey("ball");
+            if (sweet) {
+                batch.setColor(1f, 0.85f, 0.2f, 0.55f);
+            } else {
+                batch.setColor(0.35f, 1f, 0.45f, 0.4f);
+            }
+            batch.draw(ballTex, sx - w / 2f, sy - w * 0.2f, w, w * 0.4f);
+            batch.setColor(Color.WHITE);
+        }
+
+        // Charge bar above the player while holding a shot key
+        if (input.chargingShot() != null) {
+            float charge = input.chargeLevel();
+            float barW = 0.9f * scale;
+            float barH = 7f;
+            float bx = sx - barW / 2f;
+            float by = sy + (PLAYER_M + 0.15f) * scale;
+            drawRect(bx, by, barW, barH, 0.1f, 0.1f, 0.1f, 0.8f);
+            drawRect(bx, by, barW * charge, barH,
+                    0.4f + 0.6f * charge, 1f - 0.7f * charge, 0.15f, 0.95f);
+        }
+    }
+
     private void drawPlayer(boolean human) {
         float ex = human ? match.getPlayerX() : match.getAiX();
         float ey = human ? match.getPlayerY() : match.getAiY();
@@ -525,7 +568,7 @@ public final class MatchScreen extends BaseScreen {
         // Desktop shot-key reference during rallies
         if (phase == MatchController.Phase.RALLY && !input.isTouchMode()) {
             drawTextCentered(font,
-                    "WASD move  |  UP smash   DOWN lob   LEFT slice   RIGHT topspin",
+                    "UP smash   DOWN lob   LEFT slice   RIGHT topspin   |   HOLD to charge, release to swing   |   A/D aims",
                     CENTER_X, 25f, Color.LIGHT_GRAY);
         }
 
